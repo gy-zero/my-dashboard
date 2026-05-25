@@ -63,7 +63,7 @@ jobs:
                           international_items.append({
                               "title": title,
                               "url": link,
-                              "source": "BBC 中文網",
+                              "source": "中央社 CNA",
                               "published_at": to_iso8601(pub_date)
                           })
           except Exception as e:
