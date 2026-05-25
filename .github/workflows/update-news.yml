@@ -27,7 +27,7 @@ jobs:
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
-          rss_url = "https://rsshub.app/bbc/traditionalchinese/world"
+          rss_url = "https://feeds.feedburner.com/rsscna/intworld"
 
           def fetch_xml(url):
               req = urllib.request.Request(
