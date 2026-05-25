@@ -30,6 +30,13 @@ jobs:
           intl_rss_url = "https://feeds.feedburner.com/rsscna/intworld"
           tw_rss_url = "https://feeds.feedburner.com/rsscna/local"
 
+          USA_KEYWORDS = [
+              "美國", "美方", "華府", "華盛頓", "白宮",
+              "川普", "特朗普", "Trump",
+              "加州", "紐約", "洛杉磯", "舊金山", "西雅圖",
+              "美軍", "國務院", "五角大廈"
+          ]
+
           def fetch_xml(url):
               req = urllib.request.Request(
                   url,
@@ -74,13 +81,26 @@ jobs:
                   })
               return items
 
+          def filter_usa_news(items, max_items=10):
+              filtered = []
+              for item in items:
+                  title = item.get("title", "")
+                  if any(keyword in title for keyword in USA_KEYWORDS):
+                      filtered.append(item)
+
+              if not filtered:
+                  filtered = items[:max_items]
+
+              return filtered[:max_items]
+
           international_items = parse_rss(intl_rss_url, "中央社 CNA 國際")
           taiwan_items = parse_rss(tw_rss_url, "中央社 CNA 台灣")
+          usa_items = filter_usa_news(international_items, max_items=10)
 
           data = {
               "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "international": international_items,
-              "us_seattle": international_items,
+              "us_seattle": usa_items,
               "taiwan": taiwan_items
           }
 
