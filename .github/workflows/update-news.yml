@@ -16,46 +16,82 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Write demo news.json
+      - name: Fetch BBC Chinese world RSS and write news.json
         run: |
-          cat > news.json <<'EOF'
-          {
-            "updated_at": "AUTO_UPDATED_BY_GITHUB_ACTIONS",
-            "international": [
-              {
-                "title": "Demo International Headline from Actions",
-                "url": "https://example.com/international",
-                "source": "GitHub Actions Demo",
-                "published_at": "2026-05-24T20:00:00Z"
-              }
-            ],
-            "us_seattle": [
-              {
-                "title": "Demo Seattle / US Headline from Actions",
-                "url": "https://example.com/us",
-                "source": "GitHub Actions Demo",
-                "published_at": "2026-05-24T19:00:00Z"
-              }
-            ],
-            "taiwan": [
-              {
-                "title": "Demo Taiwan Headline from Actions",
-                "url": "https://example.com/taiwan",
-                "source": "GitHub Actions Demo",
-                "published_at": "2026-05-24T18:00:00Z"
-              }
-            ]
-          }
-          EOF
-
           python - <<'PY'
           import json
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
-          with open("news.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+          rss_url = "http://www.bbc.co.uk/zhongwen/trad/world/index.xml"
 
-          data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          def fetch_xml(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={"User-Agent": "Mozilla/5.0"}
+              )
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  return resp.read()
+
+          def to_iso8601(dt_str):
+              try:
+                  dt = parsedate_to_datetime(dt_str)
+                  if dt.tzinfo is None:
+                      dt = dt.replace(tzinfo=timezone.utc)
+                  return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+              except Exception:
+                  return dt_str
+
+          international_items = []
+
+          try:
+              xml_data = fetch_xml(rss_url)
+              root = ET.fromstring(xml_data)
+
+              channel = root.find("channel")
+              if channel is not None:
+                  for item in channel.findall("item")[:15]:
+                      title = item.findtext("title", default="").strip()
+                      link = item.findtext("link", default="").strip()
+                      pub_date = item.findtext("pubDate", default="").strip()
+
+                      if title and link:
+                          international_items.append({
+                              "title": title,
+                              "url": link,
+                              "source": "BBC 中文網",
+                              "published_at": to_iso8601(pub_date)
+                          })
+          except Exception as e:
+              international_items = [{
+                  "title": f"BBC 中文 RSS 抓取失敗：{str(e)}",
+                  "url": "https://www.bbc.com/zhongwen/trad",
+                  "source": "System Fallback",
+                  "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+              }]
+
+          data = {
+              "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "international": international_items,
+              "us_seattle": [
+                  {
+                      "title": "Demo Seattle / US Headline from Actions",
+                      "url": "https://example.com/us",
+                      "source": "GitHub Actions Demo",
+                      "published_at": "2026-05-24T19:00:00Z"
+                  }
+              ],
+              "taiwan": [
+                  {
+                      "title": "Demo Taiwan Headline from Actions",
+                      "url": "https://example.com/taiwan",
+                      "source": "GitHub Actions Demo",
+                      "published_at": "2026-05-24T18:00:00Z"
+                  }
+              ]
+          }
 
           with open("news.json", "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
