@@ -1,26 +1,26 @@
 {
-  "updated_at": "2026-05-24T23:00:00Z",
+  "updated_at": "2026-05-25T06:13:42Z",
   "international": [
     {
-      "title": "Demo International Headline",
+      "title": "Demo International Headline from Actions",
       "url": "https://example.com/international",
-      "source": "Demo Source",
+      "source": "GitHub Actions Demo",
       "published_at": "2026-05-24T20:00:00Z"
     }
   ],
   "us_seattle": [
     {
-      "title": "Demo Seattle / US Headline",
+      "title": "Demo Seattle / US Headline from Actions",
       "url": "https://example.com/us",
-      "source": "Demo Source",
+      "source": "GitHub Actions Demo",
       "published_at": "2026-05-24T19:00:00Z"
     }
   ],
   "taiwan": [
     {
-      "title": "Demo Taiwan Headline",
+      "title": "Demo Taiwan Headline from Actions",
       "url": "https://example.com/taiwan",
-      "source": "Demo Source",
+      "source": "GitHub Actions Demo",
       "published_at": "2026-05-24T18:00:00Z"
     }
   ]
