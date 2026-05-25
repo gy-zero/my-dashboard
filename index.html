@@ -3,22 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Terminal</title>
+  <title>Ashley's Live Terminal</title>
   <style>
-    :root { --bg:#050505; --card:#101010; --card2:#151515; --accent:#00e5ff; --text:#fff; --muted:#8b8b8b; --border:#222; --red:#ff5b5b; --green:#6df0b0; --yellow:#ffd166; }
+    :root {
+      --bg:#050505;
+      --card:#101010;
+      --card2:#151515;
+      --accent:#00e5ff;
+      --text:#fff;
+      --muted:#8b8b8b;
+      --border:#222;
+      --red:#ff5b5b;
+      --green:#6df0b0;
+      --yellow:#ffd166;
+    }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;justify-content:center}
-    .main-wrapper{width:100%;max-width:900px;padding:16px}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      display:flex;
+      justify-content:center;
+    }
+    .main-wrapper{width:100%;max-width:1180px;padding:16px}
     h1{font-size:24px;margin:0 0 6px}
     .sub{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:16px}
-    h2{font-size:14px;color:var(--accent);border-left:3px solid var(--accent);padding-left:10px;margin:22px 0 12px;text-transform:uppercase;letter-spacing:1px}
-    .notice-box{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.35);color:var(--yellow);padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:13px;line-height:1.55}
-    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
-    th,td{padding:11px 9px;border-bottom:1px solid var(--border);font-size:13px;text-align:left;vertical-align:middle;white-space:nowrap}
-    th{background:var(--card2);color:#9d9d9d;font-size:10px;letter-spacing:.6px;text-transform:uppercase}
+    h2{
+      font-size:14px;
+      color:var(--accent);
+      border-left:3px solid var(--accent);
+      padding-left:10px;
+      margin:22px 0 12px;
+      text-transform:uppercase;
+      letter-spacing:1px;
+    }
+    .notice-box{
+      background:rgba(255,209,102,.08);
+      border:1px solid rgba(255,209,102,.35);
+      color:var(--yellow);
+      padding:12px 14px;
+      border-radius:12px;
+      margin-bottom:16px;
+      font-size:13px;
+      line-height:1.55
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      margin-bottom:10px
+    }
+    th,td{
+      padding:11px 9px;
+      border-bottom:1px solid var(--border);
+      font-size:13px;
+      text-align:left;
+      vertical-align:middle;
+      white-space:nowrap
+    }
+    th{
+      background:var(--card2);
+      color:#9d9d9d;
+      font-size:10px;
+      letter-spacing:.6px;
+      text-transform:uppercase
+    }
     .table-wrap{overflow-x:auto;border-radius:12px}
     .val-col{text-align:right}
-    .up{color:var(--green)} .down{color:var(--red)} .flat{color:var(--yellow)}
+    .up{color:var(--green)}
+    .down{color:var(--red)}
+    .flat{color:var(--yellow)}
     .source-tag{font-size:11px;color:#6a6a6a;margin:6px 2px 18px;line-height:1.5}
     .error{color:#ffb1b1;font-size:12px;margin-top:6px;line-height:1.5}
     .ok{color:#a4f4d0}
@@ -31,22 +89,52 @@
     .uv-very-high{background:#e53935}
     .uv-extreme{background:#7e57c2}
 
-    .news-grid{display:grid;grid-template-columns:1fr;gap:14px}
-    .news-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
-    .news-card h3{margin:0 0 10px;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.8px}
+    .news-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+      gap:14px
+    }
+    .news-card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+      min-height:240px;
+    }
+    .news-card h3{
+      margin:0 0 10px;
+      font-size:13px;
+      color:var(--accent);
+      text-transform:uppercase;
+      letter-spacing:.8px
+    }
     .news-list{list-style:none;padding:0;margin:0}
-    .news-list li{padding:10px 0;border-bottom:1px solid var(--border);white-space:normal}
+    .news-list li{
+      padding:10px 0;
+      border-bottom:1px solid var(--border);
+      white-space:normal
+    }
     .news-list li:last-child{border-bottom:none}
     .news-list a{color:var(--text);text-decoration:none}
     .news-list a:hover{text-decoration:underline}
-    .news-meta{display:block;color:var(--muted);font-size:11px;line-height:1.5;margin-top:4px}
+    .news-meta{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.5;
+      margin-top:4px
+    }
   </style>
 </head>
 <body>
   <div class="main-wrapper">
-    <h1>Live Terminal</h1>
-    <div class="sub">這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。股票讀取 Google Sheets feed；天氣讀取 Open-Meteo live API；新聞則顯示 International News、轉角國際、Taiwan News 三個區塊，並讀取 repo 內的 JSON 檔。</div>
-    <div class="notice-box">目前新聞區塊先讀取同 repo 的 news.json。等這一步確認正常後，下一步再接 GitHub Actions，改成每 6 小時自動更新一次。</div>
+    <h1>Ashley's Live Terminal</h1>
+    <div class="sub">
+      這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。新聞目前包含 International、USA、Science / Tech、Taiwan、Health、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
+    </div>
+    <div class="notice-box">
+      新聞區塊目前讀取同 repo 的 news.json。Google News 類別使用 RSS；轉角國際與電腦王阿達使用 web 抓取；Frequent Miler 使用官方 RSS。
+    </div>
 
     <h2>📈 Asset Monitoring</h2>
     <div class="table-wrap">
@@ -94,23 +182,47 @@
     <div class="news-grid">
       <div class="news-card">
         <h3>International News</h3>
-        <ul id="news-international" class="news-list">
-          <li>Loading international news...</li>
-        </ul>
+        <ul id="news-international" class="news-list"><li>Loading...</li></ul>
       </div>
 
       <div class="news-card">
-        <h3>轉角國際</h3>
-        <ul id="news-us" class="news-list">
-          <li>Loading udn Global news...</li>
-        </ul>
+        <h3>USA News</h3>
+        <ul id="news-usa" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Science / Tech News</h3>
+        <ul id="news-tech" class="news-list"><li>Loading...</li></ul>
       </div>
 
       <div class="news-card">
         <h3>Taiwan News</h3>
-        <ul id="news-taiwan" class="news-list">
-          <li>Loading Taiwan news...</li>
-        </ul>
+        <ul id="news-taiwan" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Health News</h3>
+        <ul id="news-health" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>轉角國際</h3>
+        <ul id="news-global-udn" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>電腦王阿達</h3>
+        <ul id="news-koc" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Frequent Miler</h3>
+        <ul id="news-fm-main" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Frequent Miler Quick Deals</h3>
+        <ul id="news-fm-quick" class="news-list"><li>Loading...</li></ul>
       </div>
     </div>
   </div>
@@ -118,16 +230,72 @@
   <script>
     const FEED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4y4Lretc0TljPYkPjL62_Kx3lTfz7Z0q6hDLFYe1Rah00Yvh2VwI2watJ3iDFO4Wxqscb-NQ_TnvZ/pub?gid=0&single=true&output=csv';
 
-    function parseCSVLine(line){const result=[];let current='',inQuotes=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(inQuotes&&line[i+1]==='"'){current+='"';i++;}else inQuotes=!inQuotes;}else if(c===','&&!inQuotes){result.push(current);current='';}else current+=c;}result.push(current);return result.map(v=>v.trim());}
-    function parseCSV(text){const lines=text.split(/\r?\n/).filter(line=>line.trim()!==''); if(!lines.length) return []; const headers=parseCSVLine(lines[0]); return lines.slice(1).map(line=>{const cols=parseCSVLine(line); const obj={}; headers.forEach((h,i)=>obj[h||`extra_${i}`]=cols[i]||''); return obj;});}
-    function toNumber(v){const cleaned=String(v??'').replace(/,/g,'').trim(); const num=Number(cleaned); return Number.isFinite(num)?num:NaN;}
-    function fmtValue(value,name=''){const raw=String(value??'').trim(); if(!raw) return '—'; const num=toNumber(value); if(!Number.isFinite(num)) return raw; if(name.startsWith('TPE:')) return `NT$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`; return `$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;}
+    function parseCSVLine(line){
+      const result=[]; let current='', inQuotes=false;
+      for(let i=0;i<line.length;i++){
+        const c=line[i];
+        if(c==='"'){
+          if(inQuotes && line[i+1]==='"'){ current+='"'; i++; }
+          else inQuotes=!inQuotes;
+        }else if(c===',' && !inQuotes){
+          result.push(current); current='';
+        }else current+=c;
+      }
+      result.push(current);
+      return result.map(v=>v.trim());
+    }
+
+    function parseCSV(text){
+      const lines=text.split(/\r?\n/).filter(line=>line.trim()!=='');
+      if(!lines.length) return [];
+      const headers=parseCSVLine(lines[0]);
+      return lines.slice(1).map(line=>{
+        const cols=parseCSVLine(line);
+        const obj={};
+        headers.forEach((h,i)=>obj[h||`extra_${i}`]=cols[i]||'');
+        return obj;
+      });
+    }
+
+    function toNumber(v){
+      const cleaned=String(v??'').replace(/,/g,'').trim();
+      const num=Number(cleaned);
+      return Number.isFinite(num)?num:NaN;
+    }
+
+    function fmtValue(value,name=''){
+      const raw=String(value??'').trim();
+      if(!raw) return '—';
+      const num=toNumber(value);
+      if(!Number.isFinite(num)) return raw;
+      if(name.startsWith('TPE:')) return `NT$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+      return `$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+    }
+
     function pct(v){return Number.isFinite(v)?`${v>0?'🟢':v<0?'🔴':'🟡'} ${v.toFixed(2)}%`:'⚪ N/A';}
     function cls(v){if(!Number.isFinite(v)) return 'flat'; if(v>0) return 'up'; if(v<0) return 'down'; return 'flat';}
-    function sparklineHTML(values){const nums=values.map(toNumber).filter(v=>Number.isFinite(v)); if(nums.length<2) return '—'; const min=Math.min(...nums),max=Math.max(...nums),range=max-min||1; return `<div class="spark">${nums.map(v=>`<span class="spark-bar" style="height:${(8+((v-min)/range)*18).toFixed(1)}px"></span>`).join('')}</div>`;}
+    function sparklineHTML(values){
+      const nums=values.map(toNumber).filter(v=>Number.isFinite(v));
+      if(nums.length<2) return '—';
+      const min=Math.min(...nums),max=Math.max(...nums),range=max-min||1;
+      return `<div class="spark">${nums.map(v=>`<span class="spark-bar" style="height:${(8+((v-min)/range)*18).toFixed(1)}px"></span>`).join('')}</div>`;
+    }
 
-    function getUvLevel(uv){if(uv>=11) return {label:'Extreme',className:'uv-extreme'}; if(uv>=8) return {label:'Very High',className:'uv-very-high'}; if(uv>=6) return {label:'High',className:'uv-high'}; if(uv>=3) return {label:'Moderate',className:'uv-moderate'}; return {label:'Low',className:'uv-low'};}
-    function fmtTime(date=new Date()){return date.toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'America/Los_Angeles'})+' PDT/PST';}
+    function getUvLevel(uv){
+      if(uv>=11) return {label:'Extreme',className:'uv-extreme'};
+      if(uv>=8) return {label:'Very High',className:'uv-very-high'};
+      if(uv>=6) return {label:'High',className:'uv-high'};
+      if(uv>=3) return {label:'Moderate',className:'uv-moderate'};
+      return {label:'Low',className:'uv-low'};
+    }
+
+    function fmtTime(date=new Date()){
+      return date.toLocaleString('en-US',{
+        year:'numeric',month:'2-digit',day:'2-digit',
+        hour:'2-digit',minute:'2-digit',second:'2-digit',
+        hour12:false,timeZone:'America/Los_Angeles'
+      }) + ' PDT/PST';
+    }
 
     async function runStocks(){
       const tbody=document.getElementById('asset-data');
@@ -145,7 +313,16 @@
           const c=toNumber(r.Current), p=toNumber(r.Prev), p2=toNumber(r.Prev2), p3=toNumber(r.Prev3);
           const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN;
           const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN;
-          return `<tr><td><strong>${name}</strong></td><td class="val-col">${fmtValue(r.Current,name)}</td><td class="val-col">${fmtValue(r.Prev,name)}</td><td class="val-col">${fmtValue(r.Prev2,name)}</td><td class="val-col">${fmtValue(r.Prev3,name)}</td><td class="val-col ${cls(d1)}">${pct(d1)}</td><td class="val-col ${cls(d3)}">${pct(d3)}</td><td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td></tr>`;
+          return `<tr>
+            <td><strong>${name}</strong></td>
+            <td class="val-col">${fmtValue(r.Current,name)}</td>
+            <td class="val-col">${fmtValue(r.Prev,name)}</td>
+            <td class="val-col">${fmtValue(r.Prev2,name)}</td>
+            <td class="val-col">${fmtValue(r.Prev3,name)}</td>
+            <td class="val-col ${cls(d1)}">${pct(d1)}</td>
+            <td class="val-col ${cls(d3)}">${pct(d3)}</td>
+            <td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td>
+          </tr>`;
         }).join('');
         source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${sourceRow ? (sourceRow.Current||'').trim() : 'n/a'}</span>`;
       }catch(err){
@@ -170,7 +347,13 @@
           if(hour>=9&&hour<=21){
             const uv=data.hourly.uv_index[i];
             const uvInfo=getUvLevel(uv);
-            html+=`<tr><td>${data.hourly.time[i].split('T')[1]}</td><td>${data.hourly.temperature_2m[i]}°C</td><td>${data.hourly.apparent_temperature[i]}°C</td><td>${data.hourly.precipitation_probability[i]}%</td><td class="val-col"><strong style="color:var(--accent)">${uv}</strong><br><span class="uv-pill ${uvInfo.className}">${uvInfo.label}</span></td></tr>`;
+            html+=`<tr>
+              <td>${data.hourly.time[i].split('T')[1]}</td>
+              <td>${data.hourly.temperature_2m[i]}°C</td>
+              <td>${data.hourly.apparent_temperature[i]}°C</td>
+              <td>${data.hourly.precipitation_probability[i]}%</td>
+              <td class="val-col"><strong style="color:var(--accent)">${uv}</strong><br><span class="uv-pill ${uvInfo.className}">${uvInfo.label}</span></td>
+            </tr>`;
           }
         }
         weatherBody.innerHTML=html||'<tr><td colspan="5" style="text-align:center;">No hourly weather returned.</td></tr>';
@@ -185,21 +368,17 @@
     function renderNewsList(elementId, items){
       const el = document.getElementById(elementId);
       if(!el) return;
-
       if(!Array.isArray(items) || items.length===0){
         el.innerHTML = '<li>No news yet.</li>';
         return;
       }
-
       el.innerHTML = items.map(item => {
         const title = item.title || 'Untitled';
         const url = item.url || '#';
         const meta = [
           item.source ? `Source: ${item.source}` : '',
-          item.published_at ? `Published: ${item.published_at}` : '',
-          item.updated_at ? `Updated: ${item.updated_at}` : ''
+          item.published_at ? `Published: ${item.published_at}` : ''
         ].filter(Boolean).join(' · ');
-
         return `
           <li>
             <a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
@@ -212,31 +391,36 @@
     async function loadNews(){
       const source = document.getElementById('news-source');
       const error = document.getElementById('news-error');
-      const intlEl = document.getElementById('news-international');
-      const usEl = document.getElementById('news-us');
-      const twEl = document.getElementById('news-taiwan');
-
       source.textContent = 'News: fetching ./news.json...';
       error.textContent = '';
 
       try{
         const url = './news.json?v=' + Date.now();
         const res = await fetch(url, { cache: 'no-store' });
-
         source.textContent = `News: fetch response ${res.status}`;
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
 
-        renderNewsList('news-international', Array.isArray(data.international) ? data.international : []);
-        renderNewsList('news-us', Array.isArray(data.us_seattle) ? data.us_seattle : []);
-        renderNewsList('news-taiwan', Array.isArray(data.taiwan) ? data.taiwan : []);
+        renderNewsList('news-international', data.international || []);
+        renderNewsList('news-usa', data.usa || []);
+        renderNewsList('news-tech', data.tech_science || []);
+        renderNewsList('news-taiwan', data.taiwan || []);
+        renderNewsList('news-health', data.health || []);
+        renderNewsList('news-global-udn', data.udn_global || []);
+        renderNewsList('news-koc', data.koc || []);
+        renderNewsList('news-fm-main', data.frequent_miler || []);
+        renderNewsList('news-fm-quick', data.frequent_miler_quick_deals || []);
 
         source.innerHTML = `News: news.json loaded · Updated at: <span class="ok">${data.updated_at || 'n/a'}</span>`;
       }catch(err){
-        if (intlEl) intlEl.innerHTML = '<li>News load failed.</li>';
-        if (usEl) usEl.innerHTML = '<li>News load failed.</li>';
-        if (twEl) twEl.innerHTML = '<li>News load failed.</li>';
+        [
+          'news-international','news-usa','news-tech','news-taiwan',
+          'news-health','news-global-udn','news-koc','news-fm-main','news-fm-quick'
+        ].forEach(id=>{
+          const el=document.getElementById(id);
+          if(el) el.innerHTML='<li>News load failed.</li>';
+        });
         source.textContent = 'News: load failed';
         error.textContent = `新聞讀取失敗：${err.message}`;
       }
