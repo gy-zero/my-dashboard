@@ -18,24 +18,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch CNA RSS and write news.json
+      - name: Fetch CNA RSS and UDN Global page, then write news.json
         run: |
           python - <<'PY'
           import json
+          import re
           import urllib.request
           import xml.etree.ElementTree as ET
+          from html import unescape
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
           intl_rss_url = "https://feeds.feedburner.com/rsscna/intworld"
           tw_rss_url = "https://feeds.feedburner.com/rsscna/local"
+          udn_global_url = "https://global.udn.com/global_vision/index"
 
-          USA_KEYWORDS = [
-              "美國", "美方", "華府", "華盛頓", "白宮",
-              "川普", "特朗普", "Trump",
-              "加州", "紐約", "洛杉磯", "舊金山", "西雅圖",
-              "美軍", "國務院", "五角大廈"
-          ]
+          def fetch_text(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={"User-Agent": "Mozilla/5.0"}
+              )
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  charset = resp.headers.get_content_charset() or "utf-8"
+                  return resp.read().decode(charset, errors="ignore")
 
           def fetch_xml(url):
               req = urllib.request.Request(
@@ -81,26 +86,74 @@ jobs:
                   })
               return items
 
-          def filter_usa_news(items, max_items=10):
-              filtered = []
-              for item in items:
-                  title = item.get("title", "")
-                  if any(keyword in title for keyword in USA_KEYWORDS):
-                      filtered.append(item)
+          def strip_tags(text):
+              text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
+              text = re.sub(r"<style.*?>.*?</style>", "", text, flags=re.S | re.I)
+              text = re.sub(r"<[^>]+>", " ", text)
+              text = unescape(text)
+              text = re.sub(r"\s+", " ", text).strip()
+              return text
 
-              if not filtered:
-                  filtered = items[:max_items]
+          def parse_udn_global(url, max_items=10):
+              try:
+                  html = fetch_text(url)
 
-              return filtered[:max_items]
+                  patterns = [
+                      re.compile(r'<a[^>]+href="(https://global\.udn\.com/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                      re.compile(r'<a[^>]+href="(\/global_vision\/story\/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                  ]
+
+                  seen = set()
+                  items = []
+
+                  for pattern in patterns:
+                      for match in pattern.finditer(html):
+                          article_url = match.group(1).strip()
+                          if article_url.startswith("/"):
+                              article_url = "https://global.udn.com" + article_url
+
+                          anchor_html = match.group(2)
+                          title = strip_tags(anchor_html)
+
+                          if not title or len(title) < 8:
+                              continue
+                          if article_url in seen:
+                              continue
+
+                          seen.add(article_url)
+                          items.append({
+                              "title": title,
+                              "url": article_url,
+                              "source": "udn 轉角國際",
+                              "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                          })
+
+                  if not items:
+                      return [{
+                          "title": "udn 轉角國際暫時無法取得新聞列表",
+                          "url": url,
+                          "source": "System Fallback",
+                          "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                      }]
+
+                  return items[:max_items]
+
+              except Exception as e:
+                  return [{
+                      "title": f"udn 轉角國際抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                  }]
 
           international_items = parse_rss(intl_rss_url, "中央社 CNA 國際")
           taiwan_items = parse_rss(tw_rss_url, "中央社 CNA 台灣")
-          usa_items = filter_usa_news(international_items, max_items=10)
+          udn_items = parse_udn_global(udn_global_url, max_items=10)
 
           data = {
               "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "international": international_items,
-              "us_seattle": usa_items,
+              "us_seattle": udn_items,
               "taiwan": taiwan_items
           }
 
