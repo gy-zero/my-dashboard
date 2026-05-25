@@ -3,7 +3,7 @@ name: Update News Feed
 on:
   schedule:
     - cron: '0 13,16,19,22,1,5 * * *'
-    - cron: '22 20 * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
