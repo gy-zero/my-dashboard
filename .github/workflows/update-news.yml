@@ -68,8 +68,8 @@ jobs:
                           })
           except Exception as e:
               international_items = [{
-                  "title": f"BBC 中文 RSS 抓取失敗：{str(e)}",
-                  "url": "https://www.bbc.com/zhongwen/trad",
+                  "title": f"中央社 CNA RSS 抓取失敗：{str(e)}",
+                  "url": "https://www.cna.com.tw",
                   "source": "System Fallback",
                   "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
               }]
