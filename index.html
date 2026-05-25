@@ -30,13 +30,23 @@
     .uv-high{background:#fb8c00}
     .uv-very-high{background:#e53935}
     .uv-extreme{background:#7e57c2}
+
+    .news-grid{display:grid;grid-template-columns:1fr;gap:14px}
+    .news-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
+    .news-card h3{margin:0 0 10px;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.8px}
+    .news-list{list-style:none;padding:0;margin:0}
+    .news-list li{padding:10px 0;border-bottom:1px solid var(--border);white-space:normal}
+    .news-list li:last-child{border-bottom:none}
+    .news-list a{color:var(--text);text-decoration:none}
+    .news-list a:hover{text-decoration:underline}
+    .news-meta{display:block;color:var(--muted);font-size:11px;line-height:1.5;margin-top:4px}
   </style>
 </head>
 <body>
   <div class="main-wrapper">
     <h1>Ashley's Live Terminal</h1>
-    <div class="sub">這版整合了股票與 Seattle 天氣。股票讀取 Google Sheets feed；天氣讀取 Open-Meteo live API，因此 refresh 頁面時兩邊都會重新請求資料。</div>
-    <div class="notice-box">目前股票來源是你 GitHub Pages 上可正常運作的 live feed 版本；天氣則沿用先前可用的 Seattle weather 區塊。</div>
+    <div class="sub">這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。股票讀取 Google Sheets feed；天氣讀取 Open-Meteo live API；新聞則讀取 repo 內的 JSON 檔。</div>
+    <div class="notice-box">目前新聞區塊先讀取同 repo 的 news.json。等這一步確認正常後，下一步再接 GitHub Actions，改成每 3 小時自動更新一次。</div>
 
     <h2>📈 Asset Monitoring</h2>
     <div class="table-wrap">
@@ -76,6 +86,33 @@
     </div>
     <div id="weather-source" class="source-tag">Weather: waiting for API response...</div>
     <div id="weather-error" class="error"></div>
+
+    <h2>📰 News Snapshot</h2>
+    <div id="news-source" class="source-tag">News: waiting for news.json...</div>
+    <div id="news-error" class="error"></div>
+
+    <div class="news-grid">
+      <div class="news-card">
+        <h3>International News</h3>
+        <ul id="news-international" class="news-list">
+          <li>Loading international news...</li>
+        </ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Seattle / US News</h3>
+        <ul id="news-us" class="news-list">
+          <li>Loading Seattle / US news...</li>
+        </ul>
+      </div>
+
+      <div class="news-card">
+        <h3>Taipei / Taiwan News</h3>
+        <ul id="news-taiwan" class="news-list">
+          <li>Loading Taiwan news...</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -92,12 +129,111 @@
     function getUvLevel(uv){if(uv>=11) return {label:'Extreme',className:'uv-extreme'}; if(uv>=8) return {label:'Very High',className:'uv-very-high'}; if(uv>=6) return {label:'High',className:'uv-high'}; if(uv>=3) return {label:'Moderate',className:'uv-moderate'}; return {label:'Low',className:'uv-low'};}
     function fmtTime(date=new Date()){return date.toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'America/Los_Angeles'})+' PDT/PST';}
 
-    async function runStocks(){const tbody=document.getElementById('asset-data');const source=document.getElementById('asset-source');const error=document.getElementById('asset-error');try{const res=await fetch(FEED_CSV_URL+`&v=${Date.now()}`,{cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`); const csv=await res.text(); const rows=parseCSV(csv); const sourceRow=rows.find(r=>(r.Name||'').startsWith('Source_time')); const dataRows=rows.filter(r=>r.Name && !String(r.Name).startsWith('Source_time')); tbody.innerHTML=dataRows.map(r=>{const name=r.Name||'—'; const c=toNumber(r.Current), p=toNumber(r.Prev), p2=toNumber(r.Prev2), p3=toNumber(r.Prev3); const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN; const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN; return `<tr><td><strong>${name}</strong></td><td class="val-col">${fmtValue(r.Current,name)}</td><td class="val-col">${fmtValue(r.Prev,name)}</td><td class="val-col">${fmtValue(r.Prev2,name)}</td><td class="val-col">${fmtValue(r.Prev3,name)}</td><td class="val-col ${cls(d1)}">${pct(d1)}</td><td class="val-col ${cls(d3)}">${pct(d3)}</td><td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td></tr>`;}).join(''); source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${sourceRow ? (sourceRow.Current||'').trim() : 'n/a'}</span>`;}catch(err){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;">Stock sync failed.</td></tr>'; source.textContent='Assets: feed sync failed'; error.textContent=`股票更新失敗：${err.message}`;}}
+    async function runStocks(){
+      const tbody=document.getElementById('asset-data');
+      const source=document.getElementById('asset-source');
+      const error=document.getElementById('asset-error');
+      try{
+        const res=await fetch(FEED_CSV_URL+`&v=${Date.now()}`,{cache:'no-store'});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const csv=await res.text();
+        const rows=parseCSV(csv);
+        const sourceRow=rows.find(r=>(r.Name||'').startsWith('Source_time'));
+        const dataRows=rows.filter(r=>r.Name && !String(r.Name).startsWith('Source_time'));
+        tbody.innerHTML=dataRows.map(r=>{
+          const name=r.Name||'—';
+          const c=toNumber(r.Current), p=toNumber(r.Prev), p2=toNumber(r.Prev2), p3=toNumber(r.Prev3);
+          const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN;
+          const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN;
+          return `<tr><td><strong>${name}</strong></td><td class="val-col">${fmtValue(r.Current,name)}</td><td class="val-col">${fmtValue(r.Prev,name)}</td><td class="val-col">${fmtValue(r.Prev2,name)}</td><td class="val-col">${fmtValue(r.Prev3,name)}</td><td class="val-col ${cls(d1)}">${pct(d1)}</td><td class="val-col ${cls(d3)}">${pct(d3)}</td><td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td></tr>`;
+        }).join('');
+        source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${sourceRow ? (sourceRow.Current||'').trim() : 'n/a'}</span>`;
+      }catch(err){
+        tbody.innerHTML='<tr><td colspan="8" style="text-align:center;">Stock sync failed.</td></tr>';
+        source.textContent='Assets: feed sync failed';
+        error.textContent=`股票更新失敗：${err.message}`;
+      }
+    }
 
-    async function fetchWeather(){const weatherBody=document.getElementById('weather-data');const source=document.getElementById('weather-source');const errorBox=document.getElementById('weather-error');const url='https://api.open-meteo.com/v1/forecast?latitude=47.6062&longitude=-122.3321&hourly=temperature_2m,apparent_temperature,precipitation_probability,uv_index&timezone=America%2FLos_Angeles&forecast_days=1';try{const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`); const data=await res.json(); let html=''; for(let i=0;i<data.hourly.time.length;i++){const hour=parseInt(data.hourly.time[i].split('T')[1].slice(0,2),10); if(hour>=9&&hour<=21){const uv=data.hourly.uv_index[i]; const uvInfo=getUvLevel(uv); html+=`<tr><td>${data.hourly.time[i].split('T')[1]}</td><td>${data.hourly.temperature_2m[i]}°C</td><td>${data.hourly.apparent_temperature[i]}°C</td><td>${data.hourly.precipitation_probability[i]}%</td><td class="val-col"><strong style="color:var(--accent)">${uv}</strong><br><span class="uv-pill ${uvInfo.className}">${uvInfo.label}</span></td></tr>`;}} weatherBody.innerHTML=html||'<tr><td colspan="5" style="text-align:center;">No hourly weather returned.</td></tr>'; source.innerHTML=`Weather: Open-Meteo live API · Last sync: <span class="ok">${fmtTime()}</span>`;}catch(err){weatherBody.innerHTML='<tr><td colspan="5" style="text-align:center;">Weather sync failed.</td></tr>'; source.textContent='Weather: sync failed'; errorBox.textContent=`天氣更新失敗：${err.message}`;}}
+    async function fetchWeather(){
+      const weatherBody=document.getElementById('weather-data');
+      const source=document.getElementById('weather-source');
+      const errorBox=document.getElementById('weather-error');
+      const url='https://api.open-meteo.com/v1/forecast?latitude=47.6062&longitude=-122.3321&hourly=temperature_2m,apparent_temperature,precipitation_probability,uv_index&timezone=America%2FLos_Angeles&forecast_days=1';
+      try{
+        const res=await fetch(url,{cache:'no-store'});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data=await res.json();
+        let html='';
+        for(let i=0;i<data.hourly.time.length;i++){
+          const hour=parseInt(data.hourly.time[i].split('T')[1].slice(0,2),10);
+          if(hour>=9&&hour<=21){
+            const uv=data.hourly.uv_index[i];
+            const uvInfo=getUvLevel(uv);
+            html+=`<tr><td>${data.hourly.time[i].split('T')[1]}</td><td>${data.hourly.temperature_2m[i]}°C</td><td>${data.hourly.apparent_temperature[i]}°C</td><td>${data.hourly.precipitation_probability[i]}%</td><td class="val-col"><strong style="color:var(--accent)">${uv}</strong><br><span class="uv-pill ${uvInfo.className}">${uvInfo.label}</span></td></tr>`;
+          }
+        }
+        weatherBody.innerHTML=html||'<tr><td colspan="5" style="text-align:center;">No hourly weather returned.</td></tr>';
+        source.innerHTML=`Weather: Open-Meteo live API · Last sync: <span class="ok">${fmtTime()}</span>`;
+      }catch(err){
+        weatherBody.innerHTML='<tr><td colspan="5" style="text-align:center;">Weather sync failed.</td></tr>';
+        source.textContent='Weather: sync failed';
+        errorBox.textContent=`天氣更新失敗：${err.message}`;
+      }
+    }
+
+    function renderNewsList(elementId, items){
+      const el = document.getElementById(elementId);
+      if(!Array.isArray(items) || items.length===0){
+        el.innerHTML = '<li>No news yet.</li>';
+        return;
+      }
+
+      el.innerHTML = items.map(item => {
+        const title = item.title || 'Untitled';
+        const url = item.url || '#';
+        const meta = [
+          item.source ? `Source: ${item.source}` : '',
+          item.published_at ? `Published: ${item.published_at}` : '',
+          item.updated_at ? `Updated: ${item.updated_at}` : ''
+        ].filter(Boolean).join(' · ');
+
+        return `
+          <li>
+            <a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
+            ${meta ? `<span class="news-meta">${meta}</span>` : ''}
+          </li>
+        `;
+      }).join('');
+    }
+
+    async function loadNews(){
+      const source=document.getElementById('news-source');
+      const error=document.getElementById('news-error');
+
+      try{
+        const res = await fetch('./news.json?v=' + Date.now(), { cache:'no-store' });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+
+        renderNewsList('news-international', data.international);
+        renderNewsList('news-us', data.us_seattle);
+        renderNewsList('news-taiwan', data.taiwan);
+
+        source.innerHTML = `News: news.json snapshot · Updated at: <span class="ok">${data.updated_at || 'n/a'}</span>`;
+      }catch(err){
+        document.getElementById('news-international').innerHTML = '<li>News load failed.</li>';
+        document.getElementById('news-us').innerHTML = '<li>News load failed.</li>';
+        document.getElementById('news-taiwan').innerHTML = '<li>News load failed.</li>';
+        source.textContent = 'News: load failed';
+        error.textContent = `新聞讀取失敗：${err.message}`;
+      }
+    }
 
     runStocks();
     fetchWeather();
+    loadNews();
   </script>
 </body>
 </html>
