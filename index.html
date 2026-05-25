@@ -34,7 +34,7 @@
       color:var(--accent);
       border-left:3px solid var(--accent);
       padding-left:10px;
-      margin:22px 0 12px;
+      margin:22px 0 8px;
       text-transform:uppercase;
       letter-spacing:1px;
     }
@@ -77,7 +77,7 @@
     .up{color:var(--green)}
     .down{color:var(--red)}
     .flat{color:var(--yellow)}
-    .source-tag{font-size:11px;color:#6a6a6a;margin:6px 2px 18px;line-height:1.5}
+    .source-tag{font-size:11px;color:#6a6a6a;margin:0 2px 10px;line-height:1.5}
     .error{color:#ffb1b1;font-size:12px;margin-top:6px;line-height:1.5}
     .ok{color:#a4f4d0}
     .spark{display:flex;gap:4px;align-items:end;justify-content:flex-end;height:28px;min-width:54px}
@@ -144,6 +144,7 @@
     </div>
 
     <h2>📈 Asset Monitoring</h2>
+    <div id="asset-source" class="source-tag">Assets: waiting for feed...</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -161,10 +162,10 @@
         <tbody id="asset-data"><tr><td colspan="8" style="text-align:center;">Loading feed...</td></tr></tbody>
       </table>
     </div>
-    <div id="asset-source" class="source-tag">Assets: waiting for feed...</div>
     <div id="asset-error" class="error"></div>
 
     <h2>☁️ Seattle Weather (Live API)</h2>
+    <div id="weather-source" class="source-tag">Weather: waiting for API response...</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -179,7 +180,6 @@
         <tbody id="weather-data"><tr><td colspan="5" style="text-align:center;">Syncing with Open-Meteo...</td></tr></tbody>
       </table>
     </div>
-    <div id="weather-source" class="source-tag">Weather: waiting for API response...</div>
     <div id="weather-error" class="error"></div>
 
     <h2>📰 News Snapshot</h2>
@@ -318,6 +318,13 @@
       return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second} ${map.timeZoneName}`;
     }
 
+    function normalizeSheetTime(raw){
+      const text = String(raw || '').trim();
+      if(!text) return 'n/a';
+      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(text)) return `${text}:00 PDT`;
+      return text;
+    }
+
     async function runStocks(){
       const tbody=document.getElementById('asset-data');
       const source=document.getElementById('asset-source');
@@ -345,7 +352,7 @@
             <td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td>
           </tr>`;
         }).join('');
-        source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${(sourceRow ? (sourceRow.Current||'').trim() : 'n/a')}</span>`;
+        source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${normalizeSheetTime(sourceRow ? (sourceRow.Current||'') : '')}</span>`;
       }catch(err){
         tbody.innerHTML='<tr><td colspan="8" style="text-align:center;">Stock sync failed.</td></tr>';
         source.textContent='Assets: feed sync failed';
