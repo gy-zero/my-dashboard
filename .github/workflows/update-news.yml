@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-            - name: Fetch CNA RSS and write news.json
+      - name: Fetch CNA RSS and write news.json
         run: |
           python - <<'PY'
           import json
