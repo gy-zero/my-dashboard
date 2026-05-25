@@ -1,17 +1,28 @@
-schedule:
-- cron: '0 6,9,12,15,18,22 * * *'
-timezone: 'America/Los_Angeles'
-    - cron: '22 13 * * *'
-      timezone: 'America/Los_Angeles'
-workflow_dispatch:
+name: Update News Feed
+
+on:
+  schedule:
+    - cron: '0 13,16,19,22,1,5 * * *'
+    - cron: '22 20 * * *'
+  workflow_dispatch:
 
 permissions:
-@@ -16,246 +18,29 @@ jobs:
-steps:
-- name: Checkout repository
-uses: actions/checkout@v4
+  contents: write
+
+jobs:
+  update-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Generate news.json
         run: |
@@ -223,10 +234,6 @@ uses: actions/checkout@v4
 
           fm_main_items = parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False)
           fm_quick_items = parse_rss(FM_QUICK, "Frequent Miler Quick Deals", max_items=5, resolve_google=False)
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
           data = {
               "updated_at": now_iso(),
@@ -240,34 +247,19 @@ uses: actions/checkout@v4
               "frequent_miler": fm_main_items,
               "frequent_miler_quick_deals": fm_quick_items
           }
-      - name: Install dependencies
-        run: npm ci
 
           with open("news.json", "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
           PY
-      - name: Update news.json
-        run: node scripts/update-news.js
 
-      - name: Commit changes
       - name: Commit and push changes
-run: |
-         git config user.name "github-actions[bot]"
-         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add news.json
-          git diff --cached --quiet || git commit -m "Auto-update news.json"
-
-      - name: Push changes
         run: |
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
-          git add public/news.json
-
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add news.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-
-          git commit -m "Update news.json"
+          git commit -m "Auto-update news.json"
           git push
