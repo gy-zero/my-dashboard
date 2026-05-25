@@ -80,14 +80,7 @@ jobs:
           data = {
               "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "international": international_items,
-              "us_seattle": [
-                  {
-                      "title": "Demo Seattle / US Headline from Actions",
-                      "url": "https://example.com/us",
-                      "source": "GitHub Actions Demo",
-                      "published_at": "2026-05-24T19:00:00Z"
-                  }
-              ],
+              "us_seattle": international_items,
               "taiwan": taiwan_items
           }
 
