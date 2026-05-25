@@ -1,13 +1,6 @@
 {
-  "updated_at": "2026-05-25T06:13:42Z",
-  "international": [
-    {
-      "title": "Demo International Headline from Actions",
-      "url": "https://example.com/international",
-      "source": "GitHub Actions Demo",
-      "published_at": "2026-05-24T20:00:00Z"
-    }
-  ],
+  "updated_at": "2026-05-25T06:45:07Z",
+  "international": [],
   "us_seattle": [
     {
       "title": "Demo Seattle / US Headline from Actions",
