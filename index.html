@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ashley's Live Terminal</title>
+  <style>
+    :root { --bg:#050505; --card:#101010; --card2:#151515; --accent:#00e5ff; --text:#fff; --muted:#8b8b8b; --border:#222; --red:#ff5b5b; --green:#6df0b0; --yellow:#ffd166; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;justify-content:center}
+    .main-wrapper{width:100%;max-width:900px;padding:16px} h1{font-size:24px;margin:0 0 6px} .sub{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:16px}
+    h2{font-size:14px;color:var(--accent);border-left:3px solid var(--accent);padding-left:10px;margin:22px 0 12px;text-transform:uppercase;letter-spacing:1px}
+    .notice-box{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.35);color:var(--yellow);padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:13px;line-height:1.55}
+    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
+    th,td{padding:11px 9px;border-bottom:1px solid var(--border);font-size:13px;text-align:left;vertical-align:middle;white-space:nowrap}
+    th{background:var(--card2);color:#9d9d9d;font-size:10px;letter-spacing:.6px;text-transform:uppercase}.table-wrap{overflow-x:auto;border-radius:12px}.val-col{text-align:right}
+    .up{color:var(--green)} .down{color:var(--red)} .flat{color:var(--yellow)} .source-tag{font-size:11px;color:#6a6a6a;margin:6px 2px 18px;line-height:1.5} .error{color:#ffb1b1;font-size:12px;margin-top:6px;line-height:1.5}
+    .ok{color:#a4f4d0} .spark{display:flex;gap:4px;align-items:end;justify-content:flex-end;height:28px;min-width:54px} .spark-bar{width:11px;border-radius:999px;background:linear-gradient(180deg,var(--accent),#147df5);opacity:.9}
+  </style>
+</head>
+<body>
+  <div class="main-wrapper">
+    <h1>Ashley's Live Terminal</h1>
+    <div class="sub">這版對應你現在的 feed：`Name / Current / Prev / Prev2 / Prev3`。如果公開 CSV 仍可被瀏覽器擋掉，請改用 embedded 版；若 CSV 可正常 fetch，這版會直接讀最新 feed。</div>
+    <div class="notice-box">你現在的 feed 已改成從 calc 引用，結構比之前穩很多。這版表格同時顯示 1D 變化與相對 Prev3 的變化。</div>
+
+    <h2>📈 Asset Monitoring</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th class="val-col">Current</th>
+            <th class="val-col">Prev</th>
+            <th class="val-col">Prev2</th>
+            <th class="val-col">Prev3</th>
+            <th class="val-col">1D Change</th>
+            <th class="val-col">Vs Prev3</th>
+            <th class="val-col">Trend</th>
+          </tr>
+        </thead>
+        <tbody id="asset-data"><tr><td colspan="8" style="text-align:center;">Loading feed...</td></tr></tbody>
+      </table>
+    </div>
+    <div id="asset-source" class="source-tag">Assets: waiting for feed...</div>
+    <div id="asset-error" class="error"></div>
+  </div>
+
+  <script>
+    const FEED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4y4Lretc0TljPYkPjL62_Kx3lTfz7Z0q6hDLFYe1Rah00Yvh2VwI2watJ3iDFO4Wxqscb-NQ_TnvZ/pub?gid=0&single=true&output=csv';
+    function parseCSVLine(line){const result=[];let current='',inQuotes=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(inQuotes&&line[i+1]==='"'){current+='"';i++;}else inQuotes=!inQuotes;}else if(c===','&&!inQuotes){result.push(current);current='';}else current+=c;}result.push(current);return result.map(v=>v.trim());}
+    function parseCSV(text){const lines=text.split(/\r?\n/).filter(line=>line.trim()!==''); if(!lines.length) return []; const headers=parseCSVLine(lines[0]); return lines.slice(1).map(line=>{const cols=parseCSVLine(line); const obj={}; headers.forEach((h,i)=>obj[h||`extra_${i}`]=cols[i]||''); return obj;});}
+    function toNumber(v){const cleaned=String(v??'').replace(/,/g,'').trim(); const num=Number(cleaned); return Number.isFinite(num)?num:NaN;}
+    function fmtValue(value,name=''){const raw=String(value??'').trim(); if(!raw) return '—'; const num=toNumber(value); if(!Number.isFinite(num)) return raw; if(name.startsWith('TPE:')) return `NT$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`; return `$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;}
+    function pct(v){return Number.isFinite(v)?`${v>0?'🟢':v<0?'🔴':'🟡'} ${v.toFixed(2)}%`:'⚪ N/A';}
+    function cls(v){if(!Number.isFinite(v)) return 'flat'; if(v>0) return 'up'; if(v<0) return 'down'; return 'flat';}
+    function sparklineHTML(values){const nums=values.map(toNumber).filter(v=>Number.isFinite(v)); if(nums.length<2) return '—'; const min=Math.min(...nums),max=Math.max(...nums),range=max-min||1; return `<div class="spark">${nums.map(v=>`<span class="spark-bar" style="height:${(8+((v-min)/range)*18).toFixed(1)}px"></span>`).join('')}</div>`;}
+    async function run(){const tbody=document.getElementById('asset-data');const source=document.getElementById('asset-source');const error=document.getElementById('asset-error');try{const res=await fetch(FEED_CSV_URL+`&v=${Date.now()}`,{cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`); const csv=await res.text(); const rows=parseCSV(csv); const sourceRow=rows.find(r=>(r.Name||'').startsWith('Source_time')); const dataRows=rows.filter(r=>r.Name && !String(r.Name).startsWith('Source_time')); tbody.innerHTML=dataRows.map(r=>{const name=r.Name||'—'; const c=toNumber(r.Current), p=toNumber(r.Prev), p2=toNumber(r.Prev2), p3=toNumber(r.Prev3); const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN; const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN; return `<tr><td><strong>${name}</strong></td><td class="val-col">${fmtValue(r.Current,name)}</td><td class="val-col">${fmtValue(r.Prev,name)}</td><td class="val-col">${fmtValue(r.Prev2,name)}</td><td class="val-col">${fmtValue(r.Prev3,name)}</td><td class="val-col ${cls(d1)}">${pct(d1)}</td><td class="val-col ${cls(d3)}">${pct(d3)}</td><td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td></tr>`;}).join(''); source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${sourceRow ? (sourceRow.Current||'').trim() : 'n/a'}</span>`;}catch(err){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;">Stock sync failed.</td></tr>'; source.textContent='Assets: feed sync failed'; error.textContent=`股票更新失敗：${err.message}`;}}
+    run();
+  </script>
+</body>
+</html>
