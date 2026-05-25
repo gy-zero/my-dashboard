@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch CNA RSS and UDN Global page, then write news.json
+      - name: Generate news.json
         run: |
           python - <<'PY'
           import json
@@ -30,9 +30,27 @@ jobs:
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
-          intl_rss_url = "https://feeds.feedburner.com/rsscna/intworld"
-          tw_rss_url = "https://feeds.feedburner.com/rsscna/local"
-          udn_global_url = "https://global.udn.com/global_vision/index"
+          GOOGLE_NEWS_INTL = "https://news.google.com/rss/search?q=world+news+OR+international+news&hl=en-US&gl=US&ceid=US:en"
+          GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=united+states+OR+u.s.+OR+america&hl=en-US&gl=US&ceid=US:en"
+          GOOGLE_NEWS_TECH = "https://news.google.com/rss/search?q=artificial+intelligence+OR+AI+OR+technology&hl=en-US&gl=US&ceid=US:en"
+          GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/search?q=taiwan&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/search?q=health+OR+medical+OR+medicine&hl=en-US&gl=US&ceid=US:en"
+
+          UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
+          KOC_URL = "https://www.koc.com.tw/"
+          FM_MAIN = "https://frequentmiler.com/feed/"
+          FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
+
+          def now_iso():
+              return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          def fetch_bytes(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={"User-Agent": "Mozilla/5.0"}
+              )
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  return resp.read()
 
           def fetch_text(url):
               req = urllib.request.Request(
@@ -43,14 +61,6 @@ jobs:
                   charset = resp.headers.get_content_charset() or "utf-8"
                   return resp.read().decode(charset, errors="ignore")
 
-          def fetch_xml(url):
-              req = urllib.request.Request(
-                  url,
-                  headers={"User-Agent": "Mozilla/5.0"}
-              )
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  return resp.read()
-
           def to_iso8601(dt_str):
               try:
                   dt = parsedate_to_datetime(dt_str)
@@ -60,32 +70,75 @@ jobs:
               except Exception:
                   return dt_str or ""
 
-          def parse_rss(url, source_label, max_items=15):
+          def clean_title(title):
+              title = unescape(title or "").strip()
+              title = re.sub(r"\s+", " ", title)
+              title = re.sub(r"\s*-\s*[^-]+$", "", title)
+              return title
+
+          def normalize_title(title):
+              title = clean_title(title).lower()
+              title = re.sub(r"\s+", " ", title)
+              title = re.sub(r"[^\w\u4e00-\u9fff ]+", "", title)
+              return title.strip()
+
+          def resolve_google_news_url(url):
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                  opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler())
+                  with opener.open(req, timeout=20) as resp:
+                      return resp.geturl()
+              except Exception:
+                  return url
+
+          def parse_rss(url, source_label, max_items=10, resolve_google=False):
               items = []
               try:
-                  xml_data = fetch_xml(url)
+                  xml_data = fetch_bytes(url)
                   root = ET.fromstring(xml_data)
                   channel = root.find("channel")
                   if channel is not None:
-                      for item in channel.findall("item")[:max_items]:
-                          title = item.findtext("title", default="").strip()
+                      for item in channel.findall("item"):
+                          title = clean_title(item.findtext("title", default=""))
                           link = item.findtext("link", default="").strip()
                           pub_date = item.findtext("pubDate", default="").strip()
-                          if title and link:
-                              items.append({
-                                  "title": title,
-                                  "url": link,
-                                  "source": source_label,
-                                  "published_at": to_iso8601(pub_date)
-                              })
+                          if not title or not link:
+                              continue
+                          final_link = resolve_google_news_url(link) if resolve_google else link
+                          items.append({
+                              "title": title,
+                              "url": final_link,
+                              "source": source_label,
+                              "published_at": to_iso8601(pub_date)
+                          })
+                          if len(items) >= max_items:
+                              break
               except Exception as e:
                   items.append({
-                      "title": f"{source_label} RSS 抓取失敗：{str(e)}",
-                      "url": "https://www.cna.com.tw",
+                      "title": f"{source_label} 抓取失敗：{str(e)}",
+                      "url": url,
                       "source": "System Fallback",
-                      "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                      "published_at": now_iso()
                   })
               return items
+
+          def dedupe_against(base_items, target_items, limit=10):
+              base_titles = {normalize_title(x.get("title", "")) for x in base_items if x.get("title")}
+              output = []
+              seen = set()
+              for item in target_items:
+                  t = normalize_title(item.get("title", ""))
+                  if not t:
+                      continue
+                  if t in base_titles:
+                      continue
+                  if t in seen:
+                      continue
+                  seen.add(t)
+                  output.append(item)
+                  if len(output) >= limit:
+                      break
+              return output
 
           def strip_tags(text):
               text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
@@ -95,67 +148,91 @@ jobs:
               text = re.sub(r"\s+", " ", text).strip()
               return text
 
-          def parse_udn_global(url, max_items=10):
+          def parse_udn_global(url, max_items=7):
               try:
                   html = fetch_text(url)
-
                   patterns = [
                       re.compile(r'<a[^>]+href="(https://global\.udn\.com/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
                       re.compile(r'<a[^>]+href="(\/global_vision\/story\/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
                   ]
-
                   seen = set()
                   items = []
-
                   for pattern in patterns:
                       for match in pattern.finditer(html):
                           article_url = match.group(1).strip()
                           if article_url.startswith("/"):
                               article_url = "https://global.udn.com" + article_url
-
-                          anchor_html = match.group(2)
-                          title = strip_tags(anchor_html)
-
-                          if not title or len(title) < 8:
+                          title = strip_tags(match.group(2))
+                          if not title or len(title) < 8 or article_url in seen:
                               continue
-                          if article_url in seen:
-                              continue
-
                           seen.add(article_url)
                           items.append({
                               "title": title,
                               "url": article_url,
                               "source": "udn 轉角國際",
-                              "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                              "published_at": now_iso()
                           })
+                          if len(items) >= max_items:
+                              return items
+                  return []
+              except Exception:
+                  return []
 
-                  if not items:
-                      return [{
-                          "title": "udn 轉角國際暫時無法取得新聞列表",
-                          "url": url,
-                          "source": "System Fallback",
-                          "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                      }]
+          def parse_koc(url, max_items=7):
+              try:
+                  html = fetch_text(url)
+                  patterns = [
+                      re.compile(r'<a[^>]+href="(https://www\.koc\.com\.tw/archives/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                      re.compile(r'<a[^>]+href="(/archives/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                  ]
+                  seen = set()
+                  items = []
+                  for pattern in patterns:
+                      for match in pattern.finditer(html):
+                          article_url = match.group(1).strip()
+                          if article_url.startswith("/"):
+                              article_url = "https://www.koc.com.tw" + article_url
+                          title = strip_tags(match.group(2))
+                          if not title or len(title) < 6 or article_url in seen:
+                              continue
+                          seen.add(article_url)
+                          items.append({
+                              "title": title,
+                              "url": article_url,
+                              "source": "電腦王阿達",
+                              "published_at": now_iso()
+                          })
+                          if len(items) >= max_items:
+                              return items
+                  return []
+              except Exception:
+                  return []
 
-                  return items[:max_items]
+          international_items = parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=15, resolve_google=True)
+          usa_raw_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=25, resolve_google=True)
+          usa_items = dedupe_against(international_items, usa_raw_items, limit=10)
 
-              except Exception as e:
-                  return [{
-                      "title": f"udn 轉角國際抓取失敗：{str(e)}",
-                      "url": url,
-                      "source": "System Fallback",
-                      "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                  }]
+          tech_items = parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=10, resolve_google=True)
+          taiwan_items = parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True)
+          health_items = parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True)
 
-          international_items = parse_rss(intl_rss_url, "中央社 CNA 國際")
-          taiwan_items = parse_rss(tw_rss_url, "中央社 CNA 台灣")
-          udn_items = parse_udn_global(udn_global_url, max_items=10)
+          udn_items = parse_udn_global(UDN_GLOBAL_URL, max_items=7)
+          koc_items = parse_koc(KOC_URL, max_items=7)
+
+          fm_main_items = parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False)
+          fm_quick_items = parse_rss(FM_QUICK, "Frequent Miler Quick Deals", max_items=5, resolve_google=False)
 
           data = {
-              "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "updated_at": now_iso(),
               "international": international_items,
-              "us_seattle": udn_items,
-              "taiwan": taiwan_items
+              "usa": usa_items,
+              "tech_science": tech_items,
+              "taiwan": taiwan_items,
+              "health": health_items,
+              "udn_global": udn_items,
+              "koc": koc_items,
+              "frequent_miler": fm_main_items,
+              "frequent_miler_quick_deals": fm_quick_items
           }
 
           with open("news.json", "w", encoding="utf-8") as f:
