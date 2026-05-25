@@ -140,7 +140,7 @@
       這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。新聞目前包含 International、USA Headlines、AI / Tech、Taiwan、Health / Medical、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
     </div>
     <div class="notice-box">
-      Google News 類別目前走 RSS 搜尋來源；轉角國際與電腦王阿達使用 web 抓取；Frequent Miler 使用官方 RSS。桌機版新聞區塊固定最多兩欄。
+      Google News 類別目前走 RSS 搜尋來源；轉角國際與電腦王阿達使用 web 抓取；Frequent Miler 使用官方 RSS。桌機版新聞區塊固定最多兩欄，News Snapshot 更新時間顯示為西雅圖本地時間。
     </div>
 
     <h2>📈 Asset Monitoring</h2>
@@ -304,6 +304,22 @@
       }) + ' PDT/PST';
     }
 
+    function formatUtcToLocal(isoString){
+      if(!isoString) return 'n/a';
+      const d = new Date(isoString);
+      if (Number.isNaN(d.getTime())) return isoString;
+      return d.toLocaleString('en-US', {
+        year:'numeric',
+        month:'2-digit',
+        day:'2-digit',
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit',
+        hour12:false,
+        timeZone:'America/Los_Angeles'
+      }) + ' PDT/PST';
+    }
+
     async function runStocks(){
       const tbody=document.getElementById('asset-data');
       const source=document.getElementById('asset-source');
@@ -419,7 +435,7 @@
         renderNewsList('news-fm-main', data.frequent_miler || []);
         renderNewsList('news-fm-quick', data.frequent_miler_quick_deals || []);
 
-        source.innerHTML = `News: news.json loaded · Updated at: <span class="ok">${data.updated_at || 'n/a'}</span>`;
+        source.innerHTML = `News: news.json loaded · Updated at: <span class="ok">${formatUtcToLocal(data.updated_at)}</span>`;
       }catch(err){
         [
           'news-international','news-usa','news-tech','news-taiwan',
