@@ -1,6 +1,13 @@
 {
-  "updated_at": "2026-05-25T06:45:07Z",
-  "international": [],
+  "updated_at": "2026-05-25T06:54:26Z",
+  "international": [
+    {
+      "title": "BBC 中文 RSS 抓取失敗：HTTP Error 403: Forbidden",
+      "url": "https://www.bbc.com/zhongwen/trad",
+      "source": "System Fallback",
+      "published_at": "2026-05-25T06:54:26Z"
+    }
+  ],
   "us_seattle": [
     {
       "title": "Demo Seattle / US Headline from Actions",
