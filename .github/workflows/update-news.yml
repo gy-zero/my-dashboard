@@ -1,0 +1,72 @@
+name: Update News JSON
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write demo news.json
+        run: |
+          cat > news.json <<'EOF'
+          {
+            "updated_at": "AUTO_UPDATED_BY_GITHUB_ACTIONS",
+            "international": [
+              {
+                "title": "Demo International Headline from Actions",
+                "url": "https://example.com/international",
+                "source": "GitHub Actions Demo",
+                "published_at": "2026-05-24T20:00:00Z"
+              }
+            ],
+            "us_seattle": [
+              {
+                "title": "Demo Seattle / US Headline from Actions",
+                "url": "https://example.com/us",
+                "source": "GitHub Actions Demo",
+                "published_at": "2026-05-24T19:00:00Z"
+              }
+            ],
+            "taiwan": [
+              {
+                "title": "Demo Taiwan Headline from Actions",
+                "url": "https://example.com/taiwan",
+                "source": "GitHub Actions Demo",
+                "published_at": "2026-05-24T18:00:00Z"
+              }
+            ]
+          }
+          EOF
+
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          with open("news.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          with open("news.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add news.json
+          git diff --cached --quiet || git commit -m "Auto-update news.json"
+
+      - name: Push changes
+        run: git push
