@@ -300,29 +300,35 @@
       const d = input ? new Date(input) : new Date();
       if (Number.isNaN(d.getTime())) return String(input || 'n/a');
 
-      const parts = new Intl.DateTimeFormat('sv-SE', {
+      const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/Los_Angeles',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZoneName: 'short'
+        hour12: false
       }).formatToParts(d);
 
       const map = {};
       parts.forEach(p => { map[p.type] = p.value; });
 
-      return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second} ${map.timeZoneName}`;
+      return `${map.year}/${map.month}/${map.day} ${map.hour}:${map.minute} PT`;
     }
 
     function normalizeSheetTime(raw){
       const text = String(raw || '').trim();
       if(!text) return 'n/a';
-      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(text)) return `${text}:00 PDT`;
-      return text;
+
+      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(text)){
+        return `${text.replace(/-/g,'/')} PT`;
+      }
+
+      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(text)){
+        return `${text.slice(0,16).replace(/-/g,'/')} PT`;
+      }
+
+      return text.replace(/\s+(PDT|PST|GMT[-−+]\d+.*)$/i, '').replace(/-/g,'/') + ' PT';
     }
 
     async function runStocks(){
@@ -405,7 +411,7 @@
         const url = item.url || '#';
         const meta = [
           item.source ? `Source: ${item.source}` : '',
-          item.published_at ? `Published: ${item.published_at}` : ''
+          item.published_at ? `Published: ${formatSeattleTime(item.published_at)}` : ''
         ].filter(Boolean).join(' · ');
         return `
           <li>
