@@ -40,7 +40,7 @@ jobs:
           GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
-          KOC_URL = "https://www.koc.com.tw/"
+          KOC_FEED = "https://www.koc.com.tw/feed"
           FM_MAIN = "https://frequentmiler.com/feed/"
           FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
 
@@ -212,7 +212,7 @@ jobs:
           health_items = parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True)
 
           udn_items = parse_udn_global(UDN_GLOBAL_URL, max_items=7)
-          koc_items = parse_koc(KOC_URL, max_items=7)
+          koc_items = parse_rss(KOC_FEED, "電腦王阿達", max_items=7, resolve_google=False)
 
           fm_main_items = parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False)
           fm_quick_items = parse_rss(FM_QUICK, "Frequent Miler Quick Deals", max_items=5, resolve_google=False)
