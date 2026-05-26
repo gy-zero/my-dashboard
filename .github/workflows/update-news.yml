@@ -33,7 +33,7 @@ jobs:
           from datetime import datetime, timezone
 
           GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_TECH = "https://news.google.com/rss/search?q=AI&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=美國&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_AI = "https://news.google.com/rss/search?q=AI&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
@@ -161,8 +161,9 @@ jobs:
 
           international_items = parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=20, resolve_google=True)
           tech_items = parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=20, resolve_google=True)
-          usa_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA / Seattle", max_items=10, resolve_google=True)
+          usa_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=10, resolve_google=True)
           taiwan_items = parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True)
+          ai_items = parse_rss(GOOGLE_NEWS_AI, "Google News AI", max_items=7, resolve_google=True)
           health_items = parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True)
 
           udn_items = parse_udn_global(UDN_GLOBAL_URL, max_items=7)
@@ -177,6 +178,7 @@ jobs:
               "tech_science": tech_items,
               "usa": usa_items,
               "taiwan": taiwan_items,
+              "ai_news": ai_items,
               "health": health_items,
               "udn_global": udn_items,
               "koc": koc_items,
