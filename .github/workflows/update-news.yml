@@ -126,24 +126,6 @@ jobs:
                   })
               return items
 
-          def dedupe_against(base_items, target_items, limit=10):
-              base_titles = {normalize_title(x.get("title", "")) for x in base_items if x.get("title")}
-              output = []
-              seen = set()
-              for item in target_items:
-                  t = normalize_title(item.get("title", ""))
-                  if not t:
-                      continue
-                  if t in base_titles:
-                      continue
-                  if t in seen:
-                      continue
-                  seen.add(t)
-                  output.append(item)
-                  if len(output) >= limit:
-                      break
-              return output
-
           def strip_tags(text):
               text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
               text = re.sub(r"<style.*?>.*?</style>", "", text, flags=re.S | re.I)
@@ -219,8 +201,7 @@ jobs:
                   return []
 
           international_items = parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=15, resolve_google=True)
-          usa_raw_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=25, resolve_google=True)
-          usa_items = dedupe_against(international_items, usa_raw_items, limit=10)
+          usa_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=10, resolve_google=True)
 
           tech_items = parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=10, resolve_google=True)
           taiwan_items = parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True)
