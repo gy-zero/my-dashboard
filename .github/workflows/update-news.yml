@@ -29,6 +29,7 @@ jobs:
           import urllib.request
           import xml.etree.ElementTree as ET
           from html import unescape
+          from html.parser import HTMLParser
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
@@ -160,33 +161,64 @@ jobs:
               except Exception:
                   return []
 
+          class WorldJournalLinkParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.items = []
+                  self.current_href = None
+                  self.capture = False
+                  self.current_text = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() != "a":
+                      return
+                  attr_dict = dict(attrs)
+                  href = attr_dict.get("href", "")
+                  if "/wj/story/" in href:
+                      self.current_href = href
+                      self.capture = True
+                      self.current_text = []
+
+              def handle_data(self, data):
+                  if self.capture:
+                      self.current_text.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag.lower() != "a" or not self.capture:
+                      return
+                  title = clean_title("".join(self.current_text))
+                  href = self.current_href or ""
+                  if href.startswith("/"):
+                      href = "https://www.worldjournal.com" + href
+                  if title and href:
+                      self.items.append((title, href))
+                  self.current_href = None
+                  self.current_text = []
+                  self.capture = False
+
           def parse_worldjournal_ai(url, max_items=7):
               try:
-                  text = fetch_text(url)
-
-                  blocks = re.findall(
-                      r'##\s+(.+?)\n\n(.*?)\n\n([^\n]{1,12})\s+(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})\s+\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}',
-                      text,
-                      flags=re.S
-                  )
+                  html = fetch_text(url)
+                  parser = WorldJournalLinkParser()
+                  parser.feed(html)
 
                   items = []
                   seen = set()
 
-                  for title, summary, category, pub_raw in blocks:
-                      title = clean_title(title)
-                      category = clean_title(category)
-
-                      if not title or len(title) < 8 or title in seen:
+                  for title, article_url in parser.items:
+                      if len(title) < 8:
                           continue
-
+                      if title in seen:
+                          continue
+                      if title == "AI":
+                          continue
                       seen.add(title)
 
                       items.append({
                           "title": title,
-                          "url": url,
-                          "source": f"世界日報 AI / {category}",
-                          "published_at": pub_raw.replace(" ", "T") + ":00Z"
+                          "url": article_url,
+                          "source": "世界日報 AI",
+                          "published_at": now_iso()
                       })
 
                       if len(items) >= max_items:
@@ -201,7 +233,6 @@ jobs:
                       })
 
                   return items
-
               except Exception as e:
                   return [{
                       "title": f"世界日報 AI 抓取失敗：{str(e)}",
