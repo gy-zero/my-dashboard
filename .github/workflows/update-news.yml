@@ -32,11 +32,11 @@ jobs:
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
-          GOOGLE_NEWS_INTL = "https://news.google.com/rss/search?q=world+news+OR+international+news&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=%E7%BE%8E%E5%9C%8B+OR+%E7%99%BD%E5%AE%AE+OR+%E8%8F%AF%E7%9B%9B%E9%A0%93&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TECH = "https://news.google.com/rss/search?q=AI+OR+%E4%BA%BA%E5%B7%A5%E6%99%BA%E6%85%A7+OR+%E7%A7%91%E6%8A%80&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/search?q=%E5%8F%B0%E7%81%A3&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/search?q=%E5%81%A5%E5%BA%B7+OR+%E9%86%AB%E7%99%82+OR+%E9%86%AB%E8%97%A5&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_USA = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSkwyMHZNRGxqTjNjd0VnVjZhQzFVVnlnQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_URL = "https://www.koc.com.tw/"
