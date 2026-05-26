@@ -34,7 +34,6 @@ jobs:
 
           GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_USA_TOPIC = "https://news.google.com/rss/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_USA_SEARCH = "https://news.google.com/rss/search?q=%E7%BE%8E%E5%9C%8B+OR+%E7%99%BD%E5%AE%AE+OR+%E8%8F%AF%E7%9B%9B%E9%A0%93&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
