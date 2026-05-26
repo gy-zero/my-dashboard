@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-26T02:10:28Z",
+  "updated_at": "2026-05-26T02:15:31Z",
   "international": [
     {
       "title": "粽香傳愛不停歇 桃園民間公益團體攜手地方送暖 弱勢家庭端午前夕感受社會溫情",
@@ -198,6 +198,12 @@
       "published_at": "2026-05-26T01:08:15Z"
     },
     {
+      "title": "採購GPU AI服務商Sakura資本支出可能提高至7倍",
+      "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQWS1vdVlNZTNxUW1nNXFwZlJaVGZCWlVFOVFjQnlRS0hCZmk2OGsySlBuM0hPTUszbFlhNU5kN1hFeDY4aEtTRjZDZWRzWEtTa043VTlmNV9vQ1V1UFZTVklJNE8wV1F0UDE5M1FmaC15aU1SaU96RHF1RnRHUkx1SThaMDhWQnNjbUpuTHY3Y3RWQQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T00:45:00Z"
+    },
+    {
       "title": "AI與車用雙引擎驅動 強茂加速功率半導體布局",
       "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxQRG9OZGRkdnNTVzBTTW1ZVmdablp4QUVQM1VIczhaYnMwVTluRktIcU84NXlDelpOSXQyT1A2M3RpeUpMUEZKSGRSRUxoa0ZIRzdCcDRWVzJqcEF4ZGR4SENOWW50ZlFjTDBJM2FSWEVkS1dVeTNYRk5YN3RiT09pM1k3aUVhSUI5elk3bDdnZFBTdmFFdmVpYndtbDk5VjRmelBJ?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News AI / Tech",
@@ -208,12 +214,6 @@
       "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9YVi1XeEZ0VUNvLWhXYzVJRHRMbnVYY2VtOWEwem1HZWpsdUZiNi14TnpGdUtILXFGY0lZUGlOS0tMYk5ndTN3UWgxWkdzVWVo0gFWQVVfeXFMTVVTVWZlY0F0UzdIdkgwT0w0WW04Rm9UbmZvcWlYaUx3c2c1R3V5Uy1CVUhaODlvZHIxWHY0TFVZYUg1WnBuT19JRE0xdjZZdE9hZVlSOWc?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News AI / Tech",
       "published_at": "2026-05-26T01:51:31Z"
-    },
-    {
-      "title": "Citrix 零信任 AI 治理,助力金融主權雲合規創新",
-      "url": "https://news.google.com/rss/articles/CBMiREFVX3lxTFA1Nmpsc2xRSVhaVjJMWHd0TWNQTC0xRHNnY3l0M05XN2RINjV2UEFsR21CaERDS2RESE9OYjlUNXFiVXNQ?oc=5&hl=en-US&gl=US&ceid=US:en",
-      "source": "Google News AI / Tech",
-      "published_at": "2026-05-26T02:05:36Z"
     }
   ],
   "taiwan": [
@@ -224,16 +224,16 @@
       "published_at": "2026-05-26T01:34:10Z"
     },
     {
-      "title": "黃仁勳還沒進駐北士科 先喊「台灣需要更多電」",
-      "url": "https://news.google.com/rss/articles/CBMiugJBVV95cUxOal9pY2duVVVFb2p4RUdKdkRlWUNOM25BSzRCVWVvM29YcXVTRHJYZ0JuNmZqNHdTMHdCUFlfcHVpMHlQdzNnMDhJelNUZHlHM1lBRy1iS1FkSFhDa1dEcXVMcTAwV2VodFFIckZTM213QlJLc3AxMTBDVTRRWXdBQm42TjFkc2hVN191R1hPQ1RuMTNDalEtOVFEdkVnTmhsVVVLMEhSaVZDTWxEYUxiZzRtSG5oNXkwbXRRVGt6NVIzZlRhVndJQ3VCUlgyT1UtTE5UNXV1VGRqR3l2ZklJRG5IS3JwZHpMLURzSC1aRk9PQV9hTkJKd1pMWFZuUlhIdFFCTnFMTU14TEkyR2ZnQXF0elE0S0xqb1JYd2RnTF83SUJNMThLNURYY015Q1hMRnhKTHloWEJTdw?oc=5&hl=en-US&gl=US&ceid=US:en",
-      "source": "Google News Taiwan",
-      "published_at": "2026-05-25T19:12:42Z"
-    },
-    {
       "title": "輝達執行長黃仁勳：台灣需要更多能源 沒有電力就沒有經濟成長",
       "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE52Xy1UTWViOUxyX3VvdV8zdk5adlNISEpoLWZxS3pQTWJReGl4VUZTbzNwenpJbEdINVFqS0dVdHJYY0ZIakxqMmxiNHloanV0NXg5ZVFQMjFGUdIBX0FVX3lxTE1zQ2pSRjJTV3RYTi1fMlhpZFNMSVk3ejlUekJLOW5neGNoajRRUXhvSTlKbVowSXZBMW5XZG5KOVhSa20wcXp2Tl9sbXM0QS1jYlpoZGVrYzQtZWRmZTJz?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News Taiwan",
       "published_at": "2026-05-25T17:23:03Z"
+    },
+    {
+      "title": "談北士科能源供應？黃仁勳：台灣要更多能源",
+      "url": "https://news.google.com/rss/articles/CBMirgJBVV95cUxQemlqRDVRci1za0dicjZ3MEkyN2V1RTVKQVJfZ3IwZEh6MndTUGxrV194aG04UXg2N1g3N2lIbS1xMHJOSVJBZ3gxVVZXYTBjV0ViUG55QUxKeWdmUHVBbXFjak1kTFZMUHVpV1dJQVRDY1R6YzE1SGdrV3dZZWdyaFNYT0dPSDFBSEVZcEo5M0tpeklHQVpZbm9sUTZOSW9jb3YtRWJtV3N3WGdIYzVtZGhCRnFxMFJUakVxd1RsRnlseDlVZEE5blFZQjdza0Q1eFBpb0JKdVRpMk1WZU93ZVR0MHV6T0ZnSkJjb3JHM19LSHFSRTRRbng5UWE5WmpQTzB3eDd1djBZOUlPaTZ6Sk8zWXBHWFByaWdhOFRBZDlTVjZRc3BlNjktb1dudw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-25T14:29:04Z"
     },
     {
       "title": "黃仁勳喊台灣需要更多電 卓榮泰回應了",
@@ -254,12 +254,6 @@
       "published_at": "2026-05-25T09:27:00Z"
     },
     {
-      "title": "台灣高鐵順利搶修5/26營運恢復正常| 生活",
-      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1JNFphYjlON3k3UWtScEJzWWFtcUJ6WEkwZkgtajlldEctOElRTDJ1cXVQWkFiY1dzcnRINDM4OTNhQ0Nqd0FCN18ydTQ3a2ZLeVBFcFh1UFh0U0xjMTFF?oc=5&hl=en-US&gl=US&ceid=US:en",
-      "source": "Google News Taiwan",
-      "published_at": "2026-05-25T22:08:00Z"
-    },
-    {
       "title": "連夜搶修…台灣高鐵宣布今天正常營運 各車次依時刻表發車",
       "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9MNlNBZE54WE9ZN0phYl9FeUxWQ3dzU1VaSkJJdGtFWlowUjRYXzNDT0IzMWlPMF83ZGNaa0FER1hJamp3bTBhTTBWZUEwcmpi0gFWQVVfeXFMTUpaZHdTMkh2dWhEMjVLNlJ5dzN1UE1uUnE5eTBPVnlEbURtSUF4elFZNTJBODJET0g1YVppNmk0a2MzbzdSN0JRWVRJZGMydDVNcjBMUGc?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News Taiwan",
@@ -270,6 +264,12 @@
       "url": "https://news.google.com/rss/articles/CBMi1gJBVV95cUxQUHVMMnVWajZiMzM3NFpZVzNHeTJMajF1X2lESUpwQUItQUVoR211ajFOcUl6akxOZk53WWc1ZWZsYkJyU2swblVFZFNRNjFGNGN5eEVoSG9raUh1c0UzUGU5NExGR0VTSjgyT1lJaUlaXy1DejNIUmlNYnJ1TndlU09idkZ0RzVhc3pKeV9PempwREQyMGYyT3ltOVl2U1NZMGg4bmtVOHc1UldORlg1THRTZDhKRl9iV2RXdDFoNTZTclRvVzFpcnotYmttTnNrQWF4RzhLcGJ1Y19MX1JzTU83bjJ2aXFDUlE1ZjJvcTZkdWctMHdaeGk3ZXY5akJDbzlBc3VXZmIwNlVUUGs4ZnlrdnFWeFRLX2J4T1JyZG5ObEx5bmoyQVdmWnc0TFZTLTUzekxFSHpfV21tOUV6VXhvSXpzcFc4M0Y4VUd4SExxSF9RYlE?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News Taiwan",
       "published_at": "2026-05-25T22:20:00Z"
+    },
+    {
+      "title": "台灣高鐵順利搶修5/26營運恢復正常| 生活",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1JNFphYjlON3k3UWtScEJzWWFtcUJ6WEkwZkgtajlldEctOElRTDJ1cXVQWkFiY1dzcnRINDM4OTNhQ0Nqd0FCN18ydTQ3a2ZLeVBFcFh1UFh0U0xjMTFF?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-25T22:08:00Z"
     },
     {
       "title": "數據揭密》台股創新高、人均GDP將破4萬美元，為何多數台灣人沒變有錢？",
@@ -298,10 +298,10 @@
       "published_at": "2026-05-26T01:55:41Z"
     },
     {
-      "title": "醫療帳單列舉扣除額無上限！專家解析三大原則",
-      "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE1rbmRBRmdMN3ZtWUNqUVdwSUwxeUFla2xsbTgyM3VySHVBbHlSWVUwTWFCTjl3cDNIZkNkZzhGazhJOGJfMVZFM2RGazRQV1BIbTY5TzRn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "title": "德重視台灣AI與數位醫療經驗石崇良：德不孤必有鄰| 生活",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5TZkVnQXBIUDUxdDlfdnZFaEx5QmZRTHlqWkJRT2F3czFMN2pfU0VLa0NvemozRXdPRHBNcnk3TUszYW1UaS1QY1dlWE05dlZlWk9qQUVIS3FMRDR5UWtN?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News Health / Medical",
-      "published_at": "2026-05-25T01:00:00Z"
+      "published_at": "2026-05-25T11:21:00Z"
     },
     {
       "title": "5月26日 話多不如話好",
@@ -310,10 +310,10 @@
       "published_at": "2026-05-25T16:05:00Z"
     },
     {
-      "title": "德重視台灣AI與數位醫療經驗石崇良：德不孤必有鄰| 生活",
-      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5TZkVnQXBIUDUxdDlfdnZFaEx5QmZRTHlqWkJRT2F3czFMN2pfU0VLa0NvemozRXdPRHBNcnk3TUszYW1UaS1QY1dlWE05dlZlWk9qQUVIS3FMRDR5UWtN?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "title": "醫療帳單列舉扣除額無上限！專家解析三大原則",
+      "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE1rbmRBRmdMN3ZtWUNqUVdwSUwxeUFla2xsbTgyM3VySHVBbHlSWVUwTWFCTjl3cDNIZkNkZzhGazhJOGJfMVZFM2RGazRQV1BIbTY5TzRn?oc=5&hl=en-US&gl=US&ceid=US:en",
       "source": "Google News Health / Medical",
-      "published_at": "2026-05-25T11:21:00Z"
+      "published_at": "2026-05-25T01:00:00Z"
     },
     {
       "title": "三總通過HIMSS第6級認證 數位轉型接軌國際",
@@ -327,43 +327,43 @@
       "title": "烏克蘭現場／基輔遭遇近期最大空襲，俄羅斯出動600架無人機與「榛樹飛彈」轟炸",
       "url": "https://global.udn.com/global_vision/story/8663/9523810?from=udn_ch1020_main_index",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "4000萬人怒吼滾出皇馬：法國隊長姆巴佩能否在美加墨世界盃再次證明自己？",
       "url": "https://global.udn.com/global_vision/story/8664/9519742?from=udn_ch1020_main_index",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "白宮外圍槍擊案：槍手已被擊斃，1個月內第3起川普周遭的襲擊事件，防範孤狼犯罪的安全漏洞？",
       "url": "https://global.udn.com/global_vision/story/8662/9522291?from=udn_ch1020_main_index",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "被管理的跨性別：從「藍色男孩事件」到最高法院判違憲，日本如何以戶籍制度治理性別？",
       "url": "https://global.udn.com/global_vision/story/8664/9517218?from=udn_ch1020_main_index",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "法國走了、俄國來了：俄羅斯如何填補非洲的強權真空？",
       "url": "https://global.udn.com/global_vision/story/8663/9517357?from=udn_ch1020_main_index",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "洪迪亞斯號漢他病毒事件：驗出人傳人安地斯病毒株，WHO疫調追蹤來源是否為阿根廷",
       "url": "https://global.udn.com/global_vision/story/8662/9488000?from=udn_indexrecommend_ch1020",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     },
     {
       "title": "中山陵前的說書人？拆解7位藍營領導人的3種話語政治類型",
       "url": "https://global.udn.com/global_vision/story/8663/9438655?from=udn_indexrecommend_ch1020",
       "source": "udn 轉角國際",
-      "published_at": "2026-05-26T02:10:26Z"
+      "published_at": "2026-05-26T02:15:29Z"
     }
   ],
   "koc": [
@@ -371,43 +371,43 @@
       "title": "非記不可：絕不會錯過重要事件",
       "url": "https://www.koc.com.tw/archives/624645",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "新聞台直播 頻道大集合！想看新聞不用辦第四台！",
       "url": "https://www.koc.com.tw/archives/12241",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "Model 3 車內臭味救星！自己換 ACDelco 森呼吸冷氣濾網，PM0.3、抗菌防霉一次到位",
       "url": "https://www.koc.com.tw/archives/639163",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "BLUETTI 1800W電吉拉mini 行動電站開箱：1800W大功率、0.01秒UPS不斷電、45分鐘快充80%，單手提起一度電",
       "url": "https://www.koc.com.tw/archives/643139",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "OPPO Find X9 Ultra 動手拍：手機一機到底攝影新標竿",
       "url": "https://www.koc.com.tw/archives/642324",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "Warpple LA10 Pro 開箱評測：2000 ANSI 流明、Google TV、全智慧校正，居家旗艦輕劇院輕鬆入手",
       "url": "https://www.koc.com.tw/archives/639997",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     },
     {
       "title": "還在忍受廚餘發臭？SOGA MEGA PRO 廚餘機皇實測，打造無異味的質感廚房",
       "url": "https://www.koc.com.tw/archives/640189",
       "source": "電腦王阿達",
-      "published_at": "2026-05-26T02:10:27Z"
+      "published_at": "2026-05-26T02:15:30Z"
     }
   ],
   "frequent_miler": [
