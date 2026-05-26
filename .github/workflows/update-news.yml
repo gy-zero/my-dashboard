@@ -23,9 +23,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install
-
       - name: Run news updater
         run: node scripts/update-news.js
 
