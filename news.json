@@ -1,189 +1,611 @@
-name: Update News Feed
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-concurrency:
-  group: update-news-${{ github.ref }}
-  cancel-in-progress: false
-
-jobs:
-  update-news:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Generate news.json
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          import socket
-          import time
-          import urllib.error
-          import urllib.request
-          import xml.etree.ElementTree as ET
-          from datetime import datetime, timezone
-          from email.utils import parsedate_to_datetime
-          from html import unescape
-          from html.parser import HTMLParser
-
-          GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=%E7%BE%8E%E5%9C%8B&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-
-          WORLDJOURNAL_AI_URL = "https://www.worldjournal.com/search/tagging/8877/AI"
-
-          UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
-          KOC_FEED = "https://www.koc.com.tw/feed"
-          FM_MAIN = "https://frequentmiler.com/feed/"
-          FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
-
-          BROWSER_HEADERS = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-              "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-              "Cache-Control": "no-cache",
-              "Pragma": "no-cache",
-          }
-
-          REQUEST_TIMEOUT = 20
-          MAX_RETRIES = 3
-          BACKOFF_SCHEDULE = [1.5, 3, 6]
-
-          def now_iso():
-              return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-          def is_retryable_http_error(code):
-              return code in (408, 425, 429, 500, 502, 503, 504)
-
-          def request_with_retry(url, decode_text=False, timeout=REQUEST_TIMEOUT):
-              last_error = None
-
-              for attempt in range(MAX_RETRIES):
-                  try:
-                      req = urllib.request.Request(url, headers=BROWSER_HEADERS)
-                      with urllib.request.urlopen(req, timeout=timeout) as resp:
-                          if decode_text:
-                              charset = resp.headers.get_content_charset() or "utf-8"
-                              return resp.read().decode(charset, errors="ignore")
-                          return resp.read()
-
-                  except urllib.error.HTTPError as e:
-                      last_error = e
-                      if not is_retryable_http_error(getattr(e, "code", None)):
-                          break
-
-                  except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
-                      last_error = e
-
-                  except Exception as e:
-                      last_error = e
-                      break
-
-                  if attempt < MAX_RETRIES - 1:
-                      time.sleep(BACKOFF_SCHEDULE[min(attempt, len(BACKOFF_SCHEDULE) - 1)])
-
-              raise last_error
-
-          def fetch_bytes(url):
-              return request_with_retry(url, decode_text=False, timeout=REQUEST_TIMEOUT)
-
-          def fetch_text(url):
-              return request_with_retry(url, decode_text=True, timeout=REQUEST_TIMEOUT)
-
-          def to_iso8601(dt_str):
-              try:
-                  dt = parsedate_to_datetime(dt_str)
-                  if dt.tzinfo is None:
-                      dt = dt.replace(tzinfo=timezone.utc)
-                  return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-              except Exception:
-                  return dt_str or ""
-
-          def clean_title(title):
-              title = unescape(title or "").strip()
-              title = re.sub(r"\s+", " ", title)
-              title = re.sub(r"\s*-\s*[^-]+$", "", title)
-              return title
-
-          def resolve_google_news_url(url):
-              last_error = None
-
-              for attempt in range(MAX_RETRIES):
-                  try:
-                      req = urllib.request.Request(url, headers=BROWSER_HEADERS)
-                      opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler())
-                      with opener.open(req, timeout=15) as resp:
-                          return resp.geturl()
-
-                  except urllib.error.HTTPError as e:
-                      last_error = e
-                      if not is_retryable_http_error(getattr(e, "code", None)):
-                          break
-
-                  except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
-                      last_error = e
-
-                  except Exception as e:
-                      last_error = e
-                      break
-
-                  if attempt < MAX_RETRIES - 1:
-                      time.sleep(BACKOFF_SCHEDULE[min(attempt, len(BACKOFF_SCHEDULE) - 1)])
-
-              return url
-
-          def parse_rss(url, source_label, max_items=10, resolve_google=False):
-              items = []
-              try:
-                  xml_data = fetch_bytes(url)
-                  root = ET.fromstring(xml_data)
-                  channel = root.find("channel")
-                  if channel is not None:
-                      for item in channel.findall("item"):
-                          title = clean_title(item.findtext("title", default=""))
-                          link = item.findtext("link", default="").strip()
-                          pub_date = item.findtext("pubDate", default="").strip()
-                          if not title or not link:
-                              continue
-                          final_link = resolve_google_news_url(link) if resolve_google else link
-                          items.append({
-                              "title": title,
-                              "url": final_link,
-                              "source": source_label,
-                              "published_at": to_iso8601(pub_date)
-                          })
-                          if len(items) >= max_items:
-                              break
-              except Exception as e:
-                  items.append({
-                      "title": f"{source_label} 抓取失敗：{str(e)}",
-                      "url": url,
-                      "source": "System Fallback",
-                      "published_at": now_iso()
-                  })
-              return items
-
-          def strip_tags(text):
-              text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
-              text = 
+{
+  "updated_at": "2026-05-26T18:40:27Z",
+  "international": [
+    {
+      "title": "Quad外長會議落幕！美日印澳宣布4項合作 日外相1句話疑嗆聲大陸",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE96bjdBVDRvNFlFWnd5OU9ubGxVRExRSnFqTlQ0YW9OaUxsUDFVdU5ZM3NkcFcxZDdpZHQxajcwUnZ0VndiQ0p0VF9fYms5TzV50gFWQVVfeXFMT2FRNjBKQkhBZmlnVEZuUnJWbTdYUzI2ZjM0NEsybi1INHFUdGpoaHlteVhGenFpTFc5cVJKZHpIeE1jNnk1MWE4Zi1HU2hBeWVaLUY0SGc?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T07:14:32Z"
+    },
+    {
+      "title": "川普：伊朗濃縮鈾可以有3途徑銷毀",
+      "url": "https://news.google.com/rss/articles/CBMi_gFBVV95cUxPTnktTUc0Q3lUZTBoT3FIZ1hHQ09yamhrNVJVOXJZeDNPcTFzMWdqNUxpYXlZVlYyU0hKMjktMW1PRlZZc0dGWmpmS0s2R0hkWGR2QVB5S21JVGNiR2xtS3BLWXFaNFY4elhPSV8tSWNRd3l1NXUxeWJlb3dLOVlDMFVBTUZlOFVkTURUZUxOcGRWS3NxZ1dZRWxtWi1lN2Y5X0ZIcFBSSG44QTJuVEc1ZFBjTXpBd3ktVzl2M2RPMnR2RW9TNXhfZm1wbEcydUY2TzItQkMyMzNNTnNXdGxjUXFDWE13bG5VLW1famIyTUpCRFN5VUxlNHo3N1VtQQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-25T23:52:50Z"
+    },
+    {
+      "title": "中東戰爭第87天》美軍空襲伊朗飛彈陣地最新發展一次看| 國際",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5razBTbHZ6bWpoU1BhbktxOHNDZ2xqNVNOV05MWE9PSE42UUJzVG9tWUF2dkxMSi0yZEZZS21CaEl1Y0UzR1l3VmJVakY3SVZXSTdNQTExS0pTeHVNN0FF?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T04:19:00Z"
+    },
+    {
+      "title": "俄羅斯揚言「大規模空襲基輔」 魯比歐：美國準備調停| 國際焦點| 全球",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9UczF5UG1ocjYweW1YTlZIaFQ3M0U5MWc1NnlQdmV6Z0dDYmE1SC1RMUFCVEg0MURGSFpNdGFrdEQ5NlA4V2xqUWxrQ2tWNzJS?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T09:41:07Z"
+    },
+    {
+      "title": "山西礦災82死128傷 BBC：大陸民間怒火升溫網路留言數十萬則| 大陸傳真| 兩岸",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE5YYms4ZVNZcjFlVzdSSGhISUF3WTVQdm9TX2F6SG1mcEFQUXNfbWF6dmhHT3JVeGZfRlBPODdLdFpFWUZzQzBtUm15LUZiTW1E?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T12:52:45Z"
+    },
+    {
+      "title": "出國注意！2國家疫情嚴重 外交部示警：儘速離境",
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5sY0JqTEJPMDd5LUlDTWRyR2RsOFZXbTBra0lGeUNlbzVxMGxRZzJ4bkZVWHY3OGNNeGV1enRnM04wVTlCM2ZFWVpMN2dzZUxLODNN?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T14:41:00Z"
+    },
+    {
+      "title": "國民黨大讚中國火箭！他參與SpaceX發射升空 本人親留言酸爆",
+      "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBDUV9xR29UZ1B2RlBOdHYyd1ZXdGdGb3FINXdfY3B4aHlIQ0I2UkFsRmp3V3lTRnB4MXktNXdGYmVJNEVtUW5ic2RjbzBnSjNNcks2akJ2YUJUdi10UGdlSFBZQlZVRHJCOVHSAW9BVV95cUxNMTdyUmN0cERGbWNWREpFTmUwcVdRYU1DdlN6ME5yM1F5VFZwMEJoZlhESDdReWxOX3dxejFYOW8xcl9JbFctTjZKV25PcEM5MzJUQ3FwbGQySldtaFROcmRqc09tZHl1UWhBUFdOaUk?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T06:08:08Z"
+    },
+    {
+      "title": "伊朗濃縮鈾送北京？陸外交部未否認 回應耐人尋味",
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTFBkWEJaSTNCYThRSEhpUmNYTjktdkVQaGJfckJFTUNDSk1LUVdJUTY4M2NNRlRseS02ZEZfT2dpZXRLZnRzYS10VXhoXzFOa3RYLWhZ0gFYQVVfeXFMT2lLN2QwUlVSWUxaNEwyREhCbWRkaDkxcVlUSTd2WW54NTN0ZVFIQkFQUmJPWEgycnljejlFcWRGanRjV09jaHE4VzZzZGlvcGEyNG5ER2gzVA?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T10:57:11Z"
+    },
+    {
+      "title": "南韓首爾高架崩塌3死3傷 崩塌驚悚瞬間影片曝",
+      "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE02WXd2SmNBa2w4YnpUT2JzMnowZEJ4Q01iVm1zN3AtakVaSFBEYlVvWGlVYzJxTFRqbUprNHZlUU9leXFTZmh6ZGswZlNuZXFPYnBLXzl3NVNLR1hKcGpwdURHc2N1QdIBa0FVX3lxTE5SaG0zbUVDNUJQMl9Xb1FKRUZ6UkRwOGlEd3pQQy1qN2hISW5DaDB5RXYxYVdGb3cybTM0elVZMWdxZ21uTXAxZVp5R2NpQVFZRHVDNVlyQ28wQi1tZGhENlA1dFRUaldET1Uw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T07:34:35Z"
+    },
+    {
+      "title": "教宗良十四世首個通諭：警惕「新型數碼奴役」風險，AI必須被「繳械」",
+      "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE0wSXhubTZZSFNaVGg5dGt3Y2x2S0RabEthOWxTWktrX0F2TTZPMEt1WHh3SzI5RzlIZHB0clRlYmtZaE1sQ3pPTjNVLWc3VVg3SUxiRXEzbkFOdkcySzR0YjRaQVdqZ9IBa0FVX3lxTFBiN1U2dXNrc05QTFlmZlAwbW5KWVBXRjVDYnNBZ1BtMDVvWjN3YjloQWRSMXF6X2dkd0JsTERtMU5laTUwRk9xSjAxaGU4TF90d2VUT3BydlpWcGd1NUVHaHZkcXVNVEx0MDgw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T05:05:29Z"
+    },
+    {
+      "title": "韓國星巴克行銷踩雷炎上 新世界會長親上火線道歉",
+      "url": "https://news.google.com/rss/articles/CBMi3AJBVV95cUxQV1pReUxieFlDdTJHQ281ekhjMkZxVk1WQXNMRDVXUWVMb1U4b1pXUGN3dXVCR1Y1VHQ4ZWpjSEVOTkhveGYzYUZ0Q1htMXFxa010S0hXSk8zUVlxdml5V1h5XzdyRWViNGk4OEJ3TXZ1MVRNcVUyS2lLcFNkTzZpOWZvamQxVTF2RUNkVmhNVmZUYXhkOXFwVnlPX1lFT1RkOG93M1FpWTl5VElfX1VSYkloM2VqNXhfYWZGZFFaYUFEb1RidGNoY1BxaVBZaXFrTmN6VVJmc0tGMVRuV2YxbndKRXZ0UURtRGRUcEREOUhLellWcFpfNUFjM2dRa3g3ZFBnaDA4UnZNa2E0UjJ5aU1pekRwY0hDUWxXRjM4d0lmTXFfXzE4ejEzZmhfYm02aW1DX2FhMURaekY1M3hVRE9Md0g1dGVPRkJFQ1JBVmNSM0xQel9xaHZlcG0?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T03:31:48Z"
+    },
+    {
+      "title": "牛彈琴：兩個鐵桿到中國 一個當場落淚 一個帶來喜訊",
+      "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTFBBSGhFTEwyTUk0bmV5c3BwYjJwenFieTBfeERxczIzOVp3LUh6dHhrQ1NPSEpmdUFaV3p4dWtqQzBkRkc3YTQta1ZCa2d5Z2s?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T01:53:03Z"
+    },
+    {
+      "title": "75載中巴情誼 巴基斯坦總理訪陸喊：要做「小中國」",
+      "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTFBmX05ZR043OW9hTXAtU05ZQTZ0T1luWDVaVWNNczNnSktzLUoyOE5objQxbHp4alZFS0xKM2M5ejNKanA1bm1JU1JYUVdYMHA0bW9EY2JXTi1BTEQ4eTMzZ0FpZ3F6ZWczS2tjQnBn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-25T01:27:35Z"
+    },
+    {
+      "title": "不只全台烤番薯！歐洲迎「地獄級夏天」 3國破5月高溫紀錄",
+      "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPZmRJWjM4OWhBMHFsYnZUUG5qVDdqYkw3NzBtUFVyZjNqMXA3aV8zWU1oU0hnQmpSZnBoUVVRYXdwN2NqYUE5NkR6SnNpbWxwLTlOMXZGdlRmam1rOFE2Zkdreks3RzRfYjVxVGxsZFk4dG1aZDNOVEd3cEhfMWN3NW8weEp3ZUxvYlE?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T02:32:00Z"
+    },
+    {
+      "title": "不收過路費！伊朗擬開放荷姆茲海峽 日經：達成和平協議30天後",
+      "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE1sODdHX1dUdldhMXY0VWFkY0M2ZlJHcDJ4Z2dpT2xkSVE1dzFucjVUeFowSzgtdHV1dTNFcHhPZGMwQVRsQTFPOHZ3WHV6NUR1Q2ZEdFBxSlF2MjdPUkY2TTNqR1l1QdIBa0FVX3lxTE1iNlBCR1dteWFZUUdjcEhoeFVVdHN0a19oQmh0dV91MUE5YzAxTjVjRlE0eGlPdm9NRkRxUzJDRlBQalo2aDhlbDZkcmdySGpYWmk5MFJCVHd6SlJNUHFDdUpnZTQzZWRSdkww?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-25T23:19:41Z"
+    },
+    {
+      "title": "川普13個月3度赴醫 醫師揪「2異狀」質疑白宮說法",
+      "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE1BLUktZ1BRSmx0RmhlRXdlNDZCb1BxMXJzcXROUzVrRHQyUHFuZW9ocXlXRnlEODhrbEFndTAtSTNWb1c0bGd0N2xlT2VJRHVITGhTLUNNc19ac3VWNk4tOE1kVTVEZ9IBa0FVX3lxTE1YZ3JCcS1sd1gyVDEzbUJrNHpnVXZvdzFWXzNsX01QUDVHZUlNWEZDaWVMamdJelZTNmQtdTBsS0V1X3N2YXZ1M2djcDNYM0ZwclVTMDdSZ0pZZVJ2RG1MbWRnek9GSW82UzRn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T04:00:01Z"
+    },
+    {
+      "title": "戰後斷網近90天伊朗總統下令重新開放國際網路| 國際",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5VTmg5c3Fmb29sX1FINFdFUXJEUmFDS3A0SkppYTdUOHM0R0w0TEhkdExwVWlPZmRLVEdFNkdHNkd4NVVycTVFU2FCeDVkU0NaRXJBZWI0TjloNFdtZ2pF?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-25T19:15:00Z"
+    },
+    {
+      "title": "中美年內達成大交易？世界或將改變",
+      "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOT0VaTG9SMDZQa1JlcllscXJjU0JWREczUmxXZXU4alJ0cGE3THJPVFNTZmpxb3o1RUdWOVN3Wm4wdk5FWGdWbFZIaWozNkpzTmg4bFl3dkxPTWxzalBmLUdnUlQ4cmVuY2wzNFRDQWNEUXI3MHRfbE5qaVlpT0QyVHB4QTh5eFAxSFdBbg?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T02:59:01Z"
+    },
+    {
+      "title": "美情報曝伊朗最高領袖「極限措施保命」 美官員看傻：像演喜劇",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE52SFhldHpBdjVyQ0VPUkdOWGt3MncteXJoMm5sbUV5elhTcS1oV1ZyWkFwQUNsV05pM2ZNX0d5UkIyVGxPaTlYV29tYTR0cm5H0gFWQVVfeXFMUEVoOUM4aFB0V2JZY0FHMmRFN1JHR1ZxLTYxR3pZZzdpN3AxdlNvZXZtTUNTLTVqS3JmcDhtN3d3MlR1VUVsN3N3SmlWbDM0MkprQUhkeEE?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-25T01:32:00Z"
+    },
+    {
+      "title": "健康網》午睡不是越久越好 醫揭護腦抗老關鍵：超過這時間反傷身",
+      "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE04QVpNa1ZueHFpV0ZyYWFtcWM0Vy1zZzVRY0VXNmhYbnF0NTNlMEE0UmxJUTZqNDUxRlRkeENDY1liZGRKYmo2Y19DNUNMTjVIcUYxNWVlMXVGTHlQZjQ1Y2djSUzSAWpBVV95cUxPOWlfSG1vdDFDYXo4WTVOczNuN0dfUGM3U3c0dUR1WTNobER3dkNQcy1kYklPTnN2TEphUWlZT1lnd3RLcTF0Y3BuM3lkUm1LMktRMHdHRUk5a01FLWc5NF9QbmdjeExaS1h3?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News International",
+      "published_at": "2026-05-26T07:09:00Z"
+    }
+  ],
+  "tech_science": [
+    {
+      "title": "搶攻中年千禧世代！經典電影IP轉戰遊戲界 007龐德新作重磅登場",
+      "url": "https://news.google.com/rss/articles/CBMiiANBVV95cUxPWFNKQi1xb3NkY21PNUZxLTE2RU1rR1drQ1pEcTZFcnM0U2hiZVh1WmxjZFY0clptXy1MdTZ4M1lfVkhWbEo4TG9SVUtYQi1hdGM0STU2bmVNaHpndnhZZ3ZlUDlqeTZoM0dxVUExRHNLOWVFOTlFb0JQaTVwNFluZENjOUZCUzlDaVBNNFFMbFoxdVZPRTNmclFDOTVZbHpmUDNSeE5VakxaX0ZybUNkVERVbUtTamlPZ0ZPU2U4MllVMlQ4aVVuYzZ1V3pNZVlPTkpLei1mREVnY1Yta2QyckZLbDEzZ0ltRkhvVkE1bDM1ZGZJSHA2ck10ZnFUQUdNZHI2ZG5HWHRpT3NZcmoxS3owZjdoNHRSMzdjbGZUMTZPWGliOFlQUzh2TFc3MFFnUVUzWFdXeTFub2F4ejVvYTMzb0tBYnM0RkZiNDVXZ1oyWmZUSTFjNGl1TzhKcFUyenI5Vzk3MER3dHQ5Yl9GbEp4WW4waXkyM21idncwNlRCaU1wM0c4TQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T14:13:45Z"
+    },
+    {
+      "title": "戰遊網全新戰車射擊遊戲《World of Tanks: HEAT》跨平台開戰",
+      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFB6MldKN1JDNVA4Q1FiU3dTOE5iMTltZUJOTXVlM2RPa1QxenNRV0lDRmVWeVlYYWl2bUlhQUcxYTU5Y2J3MUs4N3VkTXgyWDVEYmc?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T10:43:46Z"
+    },
+    {
+      "title": "Google AI Studio 開放在瀏覽器做 Android app，一週逾 25 萬個應用誕生",
+      "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE05V3FQdl91bWVRRjcyQlU5d3libVl1dUFtR016NmJUNC1xWE92VVNLTEFQVm1CcVFtM0pkLUNWTDVVakpfakd4czU2MTJFMGE0VlFlSWFaYk5EZ1dTQS12MTBxekdFV3haTS0xRw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T07:18:18Z"
+    },
+    {
+      "title": "Adobe Substance 3D 流程更新，全面支援OpenPBR、ZBrush 一鍵傳送，以及更強大的程序性建模流程",
+      "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE02TGdubnlBQ0tQay1hM0ljQ05qYVl0TXB3dld2U1VxX1pCVFBoX3kxaG5LWUJZcFNGdkc0V2xPVXFMTU4yQ1ZaYjFJWkhpOGNtRXRmWjRIMGpzZWp5WldZUkhqbG9CQUZYMU15SWhpdVpNRG5IN201THRQZV91Zw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T06:36:27Z"
+    },
+    {
+      "title": "Google Pixel 11將導入RGB燈效？I/O大會意外曝光Pixel Glow樣貌",
+      "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE1ab0RTTDVGTlVjSHY0RF9mRWVyeDFxZ0pqLU1HSTRfbTdJa25nT2hGZkVjQm1LV0tvamU3bGJTTWYtaDUyZ2twaFd4NUdLYjRRbm9raWp0WklzOUZtNTREQUprcjVHaXM?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-25T08:53:20Z"
+    },
+    {
+      "title": "Take-Two 執行長澤爾尼克：AI 將革新遊戲互動，而非取代創意",
+      "url": "https://news.google.com/rss/articles/CBMiwwJBVV95cUxOU3hJRGtva2IzUkJCMGU1UzZrVUtpS2l3NmkyVE9aYk9xQWJtUkxlSFBiYnMzeEQ0SHQzLVFQV0hVdW0yNkhfVDVLLXBKcVB2Nm4tWXVNSnlveEkyVnR2aXY0bW5hSjhjVmctWm5oVkFCUm1fMFdVSTUwaGtONkpvY0k4WHkzY01mNzY2UmNKT2ZHdWxuaExPdUlUVDN6ZmxScEg4dWcyc2dJZW1EVlBYLVpJdGNtbWk2TmowMG9HRzVLdTZCLW9DSWI1eVNaS1VLX3ZTYTZ2YkpUbVRJRUc0VDVuS1NfdS1wTXBJVXM5TTREa2dNS2Z1X1Q3VGxGdUw2VC1ZMk5KMUJzZ0xuOHE3TkYxeFFvbXpxZUQyR1ROandkZ3pTcFVxeU1BcmthZ1JoVzd6X2NlM1pPeVhoYXFVUnphbw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T01:31:01Z"
+    },
+    {
+      "title": "PlayStation Plus 六月新增的作品包含一個Xbox Game Studios 熱門歌曲- Grounded",
+      "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxOc3JWemZIbDVZUGxhN19GVWFDQnpBYmNkYWRVOC05bXNrSnZrLUNidGxBOVFlS25EbDZFT21IeUR5blQzczNvd05XZEtBXzhnemtWNnB4TEctN2FUX0U4NTBxMkFKRzYyS0NWT1ZEOXZsU0MtSDNiaTZIejBKTDBmd1JTWll0Sl9iU0czeXA0T1VpT3hMTHlFaUhYRXBoYjJONDcw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T16:32:00Z"
+    },
+    {
+      "title": "Denshattack! 可以套用到其他地點嗎？Undercoders：「Denshattack 歐洲巡迴賽？為什麼不呢！」",
+      "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxNQklCOGR0dVN1OUtNZXJKLU9tcjhpXzMzMkhyZFhkcFFWOVFiejVZdjFjNmxUS005c2FlQnp5dVY3UXRMeEp2WE9HNmlqUW1tT2pvT0hYb1JhWktKYkIxa0dYekJzcVl0NEtUTWJGRy1mQkZnUlJhVmFwaWJvWUttbzIyaWVMcDg3WXVaRWlSUGpLRlM1amtxT01tczdhX29qSDd3bUlrdHNZOU44b29CZnJINjFrQ2pFWlJ3b2p4ckFEaVU?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T15:06:44Z"
+    },
+    {
+      "title": "生活模擬新作《平行人生》正式展開搶先體驗「無網格建造」系統可隨心所欲地打造夢想住宅《Paralives》",
+      "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE9qMTBnajc5YkcyOWp0SDloaTBkRHNZd3Z6YWU1UFI5RV90cXpoT2h6bGg4VHZWUU84N3hXUnlzRmY1el8yRXI4WFNIV3AxRllBc1FVa3BRVUY?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T11:23:20Z"
+    },
+    {
+      "title": "Motorola 首款大摺手機 razr fold 登台 49,988 元起 6 月開賣",
+      "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE1xNk1pYnBOU3FLbUhmVUJOYS1XQm1qS0Z5Y1U3MWlyRFg2RmttYWpSbzhCTW1kb3BvOTlfSEV3SmR2U21raXFUWFpHMzA3UWxrTGxROWR2bEJPZEl0UFFWNzhn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T07:53:00Z"
+    },
+    {
+      "title": "播客創作者實測七款AI音樂工具 揭示情感音效新突破",
+      "url": "https://news.google.com/rss/articles/CBMi5wJBVV95cUxOQk1YbkExNXVqTi1QNTZ3MWtuLXNmbi1FX2NabVZJMkpqNFBWX01VVGtIUl8yYTMzNjlTazBxWVpBekxTV1dxelNqeENrUFE4RGxCOHhSZ3FUbGszUUx0VGZzSkRnVmNxSTVjV3hpSjBocWlWMUZCRWhMTkNxVzJwTXdzc2FaQ1ZjMHpoRjdoV244OE5ZOTdkWXBWdEx4V19wRHlYbmNDMVhoNVVtdElBTUd0R0ZZUWIyX3ZmdTR3ZXpkbTVxNEZPVTNsQzNwR2R3T3g4RW54WWFuOThudHE5dGlLa2g2TzBGcV9tNEhfMlc3dk52aFhOTU5YazZGc1FpcWF0cC1wRjZDSl9qcmprbkJCRFhObkhuSTYyOXJKOENjeTcyUTcwTlVpSmlhZURsbk5jT1Y5TEphTGVSTWk1bzcyWVJyZFlVc2dJUk0tLVV2OUcwV1BGR1dLRDY1cG9Jai1YTmEzZw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-25T16:14:57Z"
+    },
+    {
+      "title": "NVIDIA DLSS 現已支援《極限競速：地平線 6》光線追蹤與多畫格生成",
+      "url": "https://news.google.com/rss/articles/CBMi1gJBVV95cUxPempTX2wzaEFOUlFXTGVsYWVDdEJDc3hpRmZiVkxwQ19OelFubmt6cTdhNGFZSXdDb0N4TmdScHdQVV94R3lLMWZDeU9UenN0aGhmRFpSTkgwTkRZU0l5dVN5Skt4VWVKTkNra3RUalg0Ni1jdld3RTgxVV9GczNOXzV2d0RkeWMycThERjFZT2psVXpEWkJIYjJNMmhIMVlocGNxeUFfNUo1MEZ3MW9wcWRIZk00SzJyRXh3cjB5M1ZtT2JXdW1oVU1DN29EWldBWmR2TXQ0ZUREM2otVzI4d0JXdjFMUW9QckhlOTNXeDdteDYwUnR5LWFlMWFXa2lZMXFENy1nV2E0U2xNT0pMeE1rOTk5LVJxelEtQzNWOE1vcnJyX3VyU25pV0YtQVZ6bmFBWlBsNEo5cTNHSC1FMlhMUzhvSVZ3eDR4VjBkVXd6eXE1SUE?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T14:12:16Z"
+    },
+    {
+      "title": "風暴城城堡在洩漏的Elden Ring 電影拍攝中揭露",
+      "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxQSVp6b01hcFNjOUhiSmFvQktPYnZ4Wk1Pd3VHakpsUTV2RnRtZ0YyQzFGdjl5SkhILWdZamk1alZ2T3RtT1pLQklDWDBEUXJQelJpOFBYY3JtcGdpOWZZWjQzRmZQeXdrUHVBQmZSWXJPNGljOTRpbERuS2Z5b0J1dTExaFg3Q004X3cyT1FjVi15NEdSWTdxbVNHdDQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T12:31:00Z"
+    },
+    {
+      "title": "報導：Sony 因成本考量尚未批准 Destiny 3",
+      "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxOMkY4eFlmdVY1Y3M1US16djNwMTVIWnB6djlDckN2bGRTM0VmVmlrZDJ3bk5sM2VTMDJWX0tYck1vc0J2RkhMcC1HMExWby1aMkxxUy1fQzFjUUVDTUZDQXNkN3NZdDlEclJfYzdaYXc2and6MGFKcmcyd0dVdHg5RGJyUW8wSllQVWhzOVdJNVAzR1l2UXZqdQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T13:07:00Z"
+    },
+    {
+      "title": "iPhone照片打馬賽克怎麼用？3招方法替iOS打碼技巧，避免隱私被破解",
+      "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE96WTVrbW1XUDJuVUI5aTFIaFBUZC1KN3MwWm9xOEpvZm9faVgxSzJjdlZWUTVDUVFndG4xc3Z1STZfNzVaQS1lNDBaZ2t2T1o1U3NHUzliN29lZzgwUWotMkl3?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T09:53:15Z"
+    },
+    {
+      "title": "任天堂《朋友收集夢想生活》成年度迷因大作！網紅戀愛實境秀笑翻全場",
+      "url": "https://news.google.com/rss/articles/CBMiR0FVX3lxTE1NMmRZcDl3MDhrLW9lQ2YtQmE5dGwxd2d3UXNnQnI0cWJVaHdPaGp1eVVEbTJPeWZYYUNUVEN4SEs4a3BMRXBF0gFMQVVfeXFMT0xOaWdPUXlYNDNILVVMb1RpamxhX0Q0anRWLTNpVkxHb2JQakJOeElzelg5RnlKSlVTdDF5aER1eGVCMjduVDY0NGlDSg?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T03:28:00Z"
+    },
+    {
+      "title": "策略新作《從今蟻后吃飽飽》已上市壯大蟲群邁向進化之路《FEED THE QUEEN》",
+      "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1HZnkzeC0xSDhWMnJNWkdkMy1tMDRHTG5EUUhkWXo1UXZHZjhSaEtCSDZjNTdiVXBoUE5BcjE1dV8tNjNmOFNBYXNkdzM0RUl0OW9lOWR2T2o?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T09:26:23Z"
+    },
+    {
+      "title": "挑戰蘋果iPad mini OnePlus傳將推出旗艦小尺寸平板",
+      "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNZllPaXpUWW5nMnMtYjNZeDBKaXlPeEJjSTJCYTF6N29WQ2FKNGJKb0YwNWNLRmlBeURNQ1BkS0w0elZpeDRNSC1VVnNJQVU5SjlFakVRQ29sTEhkX2NKdElsN0k1aEQ3N1hIbHNLdjM4QnI1eE90MW9TUWdoN1U0amNTTzctOS16TF9YeGlR?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-25T19:28:00Z"
+    },
+    {
+      "title": "工作站級全塔！InWin COVALENT 機殼開箱 / EEB 支援、大空間設計、旗艦硬體相容",
+      "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE5kVnBGZlhWaDJKRVVpNlJkSFlHN29GMDNoSEpHQWZ6U3J3NkxQVGlCWmVRUF9WcGFqbldacjlWYk5QeTlFQXN0dl8xY3ZMQ3BPVzR0VWc3TVZCVkd5T2p4aEd6V2o4R2E2?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T08:29:24Z"
+    },
+    {
+      "title": "《極限競速：地平線6》反派AI車手「Bowie Knife99」社群迷因化 玩家超怕它參賽",
+      "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQSHlrSThBNFZ3ZlNIM21NeVFlTFVZeG1sNzdDdTFjd01zMmpUX2JhVE9LbmZoZU8xOVBXcVV6X2V2NW5TbU9CYmtJdkRyQ2tXZFhnWEJ0TGRkY1g3NUU2d1N5Z0llRHl3bVhjc0hCdzRyRDYtczZBbHdab1BHd3dxQ1NhYi1yNzRrU2o1bDhVUDYxRThZcU00VGlxTy15RXFtb3pBcXNqLTIzQQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News AI / Tech",
+      "published_at": "2026-05-26T04:17:31Z"
+    }
+  ],
+  "usa": [
+    {
+      "title": "出貨潮提早到海運美國線喊漲荷姆茲通航竟是「短多長空」！大佬說眉角- 日報",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1PODlCMEFrZlhHbTJyYXJKbi1xeEE3N2Z0WEU1RUlXaHRhM0ExV2N3ZEpsR2M5bTh0akdITTR1eXdvalVQc3VrNy1yT3RldDZ5ejVJaFpCc1N5dmMtS1Fz?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-25T19:00:00Z"
+    },
+    {
+      "title": "伊朗警告美國「別犯蠢」！首席談判代表：再挑起戰爭後果將更「猛烈且痛苦」",
+      "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTE03VnY1am9keVRZRzNYSGw4NzV1cGNRcHQ3dktGM2Ywdk5FRmtTX2VOdXF3UFVMQnpfbldSWWJwZEdsSGoxT1hzMkNaOWZSR3M?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-23T22:20:18Z"
+    },
+    {
+      "title": "美國5月消費者信心下滑 高油價加劇生活成本焦慮",
+      "url": "https://news.google.com/rss/articles/CBMi3AJBVV95cUxQWklvV3JNM0VJZkNFdWo3N1Nuc0w2U2FiMWlLam5PNjZFY2prd0EyOGxZRkIzOUtQU1hDeWdIU09ocUZUZC1IYzd4N281clhscFV4QXgxQVc4dlQ0RzY4ZFlHbG9MWFE1SkN2dWYyZ0VreVFlejRwVkhKVEt4TzlxeGZ4bjNoMnUxaHFDRXF1YWlYOUNMT29sRHNYbm5PSmxGYkpYSVQ1Y2FOajY3WGVIaGd3ejNJaWJtVTFGWDhZNVQ3WHNEdGI5SFJLYkdQUFRpYmNpaWJoMFZWWmRLSnhyZkNFMXVfVnI3SWFxcXg1Umx1aDd2djZUV2ttY3BwX2Y5ZnVjZHNKRFBVLVFnNDQyV0l6bmRWX1NRcER5WlJ5TkI1YlpISGdTeFRVbXdRcXJucnNtNjZhZTdwX3k0NUlyQ1lWU2ZKWnhfYS1oZ0xfSDJiMWRHM19tTlVrcGI?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T17:00:04Z"
+    },
+    {
+      "title": "美國再度打擊伊朗 油價反彈歐股走勢分歧",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE4zb0tETENvX3pGVlhmU2VQbnFuMnE5bWRvZFExTDVld1NPR2VKRFdkOWV1OGtwN2hObTRyZkZDSW9ydTl1RFZjbXhGYXBDOUh2NXJlWVRLUmw4RUlsSHNz0gFkQVVfeXFMUHFENHVQbzllR05ucUs0WlpzNlhTWEVrMTBrQlVrdTFveS1HMFlKNzJwZzBjNm9VNXpLaFNxWVBEUFN2cU56ODJWTGZtbU52S1V1S25rVVZ1ZklsVndQaWlUZXduNA?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T16:54:03Z"
+    },
+    {
+      "title": "美伊談判為何拉鋸？前美國安顧問：伊朗為這目的「在耍川普」",
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5rZlJfNk1OamlzYkIydmxFSnFGS3hQMVdlUGFRbk5GZVc5VmwxZkhRZTZEVkhMSlg5SkEyZ1hFNXpabC13bkt2S1JjdDVzN0g2RXI4?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T12:52:50Z"
+    },
+    {
+      "title": "《美股》美國股市因適逢陣亡將士紀念日休市1天",
+      "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxObl9ZSVl6elFSR0pFMlMyZGgxTkFla2FQbnRIRUpOdlJiN3MxNkRYOG5qbmM0UkhxWEJ2clBRVlRJVGNadXBqbk04dGFWOUNmUEVseEE2azF1dEJiemNzaG1OVF9sUGhmWGZDR240TGpXcmhDVkpfUzhYRGhaNElfckJBTlFHTmVLSnF5YTFhTUJxdw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-25T22:15:00Z"
+    },
+    {
+      "title": "美國人形機器人為何無法規模化上工？前 NASA 機器人部門負責人：只做單一任務，很難創造ROI",
+      "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxQeE80WVlsQngwYVJqWHJhcV90d3lCUjNKZUg3ODdycERDTkFmZWZqY2hkNXprQXcxWkxmSm9raVR3NTJMZVBtWjdWaXZ4VXZYeVdtSFV2S1I2YS04VXMwZ3g5THJjcWtOVU9rS0dWaGlwTkdFbjhuejl1cVJ3ZUJieDBYcFlKMFEweWZ6bndUdVdVSFBXNEtWVjUwZW4zcWlLQmVj?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-25T08:33:56Z"
+    },
+    {
+      "title": "川普「退稅紅包」快耗盡！ 美國經濟恐上演夏日驚悚片- 財經",
+      "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTE1MTVNGVklSdy1LemNZN2lhZXpmRGV2RW85ZUtVLUhJMi1KMDM3VGIxX3htcWdvSkx4OXA1XzZkMFNUc0g2VzVuck5zMGN5M1dyd2hFTkZmUnBQRFFTYTI3Q2E2cmk5b3dNSFBSZWRn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T11:27:54Z"
+    },
+    {
+      "title": "亞美尼亞國會大選前夕 與美國簽署戰略夥伴協議",
+      "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTE5sa21WQ0NFS2pRTDVOUkFJRGVwMVVBMVYzNnVmbUJpSktYbk5OTnhLaWZjZmxHUV94dlotLWxSSXR5Mm1LeDNENTZFNm1hNjQyYUhldGo1aw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T14:22:36Z"
+    },
+    {
+      "title": "亞洲石油庫存瀕崩潰臨界？專家：美國 7 月出問題",
+      "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQQnlhRjg2bnd5cDFrcmkxT2ZfaWxjSl9uTHlqLW1vZGxjQ3h0OVhiTFNXdGtBZDJLVmFTbHFHZGhibGxHVC11RjJhRzVCTTdSekZtQnpsUXhzeFZ0em82RkNCRzFCSzRKWWVjOV9tbnBjZ2hWWVk3dC12ZDh3dGFaN01PV0NhUl91ZGlXQ1dRZWVCa202LXdBUTZJaw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News USA",
+      "published_at": "2026-05-26T01:35:30Z"
+    }
+  ],
+  "taiwan": [
+    {
+      "title": "5月降雨挹注 水利署：全台水情恢復正常",
+      "url": "https://news.google.com/rss/articles/CBMilwJBVV95cUxPNE0wSi1VZGtXWS1VcDV1Q1lQZ0owQURmX2RtbkswOHNYNGFybmtOZmZUT2wwSU5tbm15dTc1V0NxblZ3UGRYZWU4VlVxeWhaSEo1dS11MkplNU1oNlpRUGpkT3o5RG1LSTMzbktWVGNnV0Q4ejhoYlBmRElaTnVZY3JadnM3RWJlU2U1Xy1sSHhkSWhySG1TT0l5c3VYcGU4azdRQmRwcFZSUWZ6YVp2TExONXplQS1vT29sLWZ1bFhUclJtNUVsM1hqSml3WGM2WVJoc3BUcWFoNVR3Wml2N2tQaVZVdF9ld3JIWWxtQzMzekpmWThQQmhUZlBNU211U3dGblAtUTRJVmZfblJVVlVxaWZ5Rlk?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T11:56:52Z"
+    },
+    {
+      "title": "紀念尹衍樑2》曾是進德中學打架首犯！「再造恩師」王金平當年「拉一把」造就千億潤泰帝國| 魏鑫陽 | 新聞",
+      "url": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE9jd0hoVnVfR3hzcjNESHhtUmdDUmJMMmZ2LWNLeEZwVWFFRVIxVlZGYjBMNzNibjZyS3ZpSFJIbWlFMWc5d3M4ZjRCcTVKZw?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T03:51:52Z"
+    },
+    {
+      "title": "今年首次！台北市發布重大警報",
+      "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTFBEQjA1RFUtQlRldlBTc3BKby1iQURRWjIxV3ZaaFFkUWp0WUZDMjF2YkJiRy1YS0lkeDdYaFZqNldic25fYURwQzJ6U2JMell2cWNrVg?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T08:15:00Z"
+    },
+    {
+      "title": "嘉縣議員憂喪屍煙彈危險毒駕 警察局長：授權大膽用槍",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTFBoUGhNeVFBeVRqUkQ1dlZmYi16OXRVcEZKTmFQQUVVVEJsQXJRc1pXb3hBVmxMU21FTXBjNENZUWxhWnJWcGlpeDRXek1kVWpZ0gFWQVVfeXFMTUwtQ3lnZWpVdHliT2tUbnRHenBneEtKcWVkX0s0dHVQNE9sMlNxNldRNjZ0TDk2UlBMWWRLdzFJTEJkc2N6Q3dOcGU5cTNvdUxtbTJkX0E?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T07:35:49Z"
+    },
+    {
+      "title": "高鐵大誤點扯攻擊陳世凱遭酸「聊手遊」：又搞中共同路人套路- 政治",
+      "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTE84ek1WaDVBVktKaDhlU3NnT0tiVnllSWdfbFdEMXVIbVYza0llbVgxak1LZkpjanJTa3haeE8weE9WaEkzUFdaZUFXd0o3Y2NKN0lFMEFxc1dNTGttTGJLMFlWU3UxSmpZaTAzVFNn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T02:32:56Z"
+    },
+    {
+      "title": "沈伯洋稱黃仁勳提Energy不是Electricity....蔣萬安用1句話反擊",
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5mTHBPdTNBWjdMZFMzQkJKRS1lS1JLZUxxWVhNejBwdThqWnhQVkZQeVlneDRmRkI5M1lOdmJlbDBRSGtpVF9CTnR0a2x4b0Y1elFZ0gFYQVVfeXFMTXhFczd2V0JkUWlvakVPNUV6ZF9SMVdpeGtseWRmMDhZR3dVR2w3T0t0YnhHR1N0QXYzZ2pwakFja2tRUnB2UF9YN0tSQnRONmZjOGRYazNoTQ?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T06:01:04Z"
+    },
+    {
+      "title": "黃光芹開撕！黃國昌昔上館長直播聽到「上海那個」臉僵畫面被挖出",
+      "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE5faDRsMThyNDJRQ3ZoS3l3VDFQQWpLTFRSaG92RXJyWEpKZlZ1V3Y2anFLLUhWSFRjYjhsV2NreHhUbms4MnNuRVlmaWh2ZDFKVXlMMUkzR2d2UVpkVkJaWWlYUENKdkJWWnfSAW9BVV95cUxPd3cwaUY3R0lNZGZBZmdoajVTejh1QzFScDFOTk9KaXdtZ1otYkdQUFFOT2thR3c1dXVXbDQwUi1sNVJsOENUTk1TZW5zT0RzeThLRmJtYkw5OWVWRzZ3b0VFWlNmZ0ZlUDg0eUFIU3c?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T07:20:32Z"
+    },
+    {
+      "title": "快訊／國民黨禮讓無黨籍！ 朴子市長吳品叡參選嘉義縣長",
+      "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE1hNGJMOXhsdTR2Ty1ILVFDQ09JVU9DMHM2Z3poTU1LLTBSSkJMLUZjS1U3aXFVZHVrQnlZQzBtX1JIWW9jZEl0U251UTcxWU9rdVdCTUVqdndPdkVIUUHSAWhBVV95cUxPVGhfTk9zcEFLTy1yUHQ0dEt4UWI4YmZiRjJGNTFDTGQzaU1fd2dNTU9KNExiR1V0b29EdkdyX3ZjSDRoT09CZ0VVOXFaM2pqb3M5NHVndWdPeGtNcEJQaDdQQlVHM3NkSA?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T09:41:00Z"
+    },
+    {
+      "title": "準「薔蜜颱風」未來不排除轉強颱 估下周這3天大迴轉 對台灣影響曝",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTFBXamltSTlYekk0RmkxWG4xUGNONmp6aWRESC1RWEZwMkFvOTRTN0JLLVpXZ1B3T3hIbkpDYWUtT3p3NlpHenVGOTNRaDgzWnFf0gFWQVVfeXFMTlJtdjB5MkVzM2dBX1pnb1VjNnRrSzBOdk9xVXdmRDBtcTE5bVFfb1ZuNnhNTFNaM1lmTUQ1UFgzbHU1Y0ptOVViYVk1bHlFckphUTBfWEE?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T04:10:03Z"
+    },
+    {
+      "title": "抽籤決定誰吃！台中國小營養午餐 整鍋湯僅9顆貢丸",
+      "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBvOEJoZmY2eU1tX0VoaHhuVmVENVV3UHdHMkhWNzhPT2tndlFsWnB5LXJSeUU1cEhiakRYdXdpTDJwcW5FUjM1U1gzbTlmcFNQMFN3RUZINkc5aVcyQUFVS1NBZkbSAWpBVV95cUxNVE9pT3JGTzFXVWU3azZaeTlTcG1pNDY0U0VKVS1QbjNDZkxFMGVrVzl3aW1mWHFkeW9NMkVSMVYwN0xZelhFRHdmX19jMVRsZXdNVnlCZ1pTc2I4SzZQTlhvMS10OHhsQnV3?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Taiwan",
+      "published_at": "2026-05-26T03:23:25Z"
+    }
+  ],
+  "ai_news": [
+    {
+      "title": "川普下月80歲今又赴醫院健檢…今日5件事",
+      "url": "https://www.worldjournal.com/wj/story/124211/9527680?from=wj_msg",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "基金會：馬英九絕無對王光慈有任何暴力行為",
+      "url": "https://www.worldjournal.com/wj/story/121475/9527521?from=wj_msg",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "紐時分析：教宗通諭阻止科技業造神 非企圖削弱AI",
+      "url": "https://www.worldjournal.com/wj/story/121488/9525703",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "紐約時報25日分析，就在人工智慧(AI)熱潮在矽谷興起之際，教宗良十四世(Pope Leo XIV)有話想說。矽谷向來懷抱成為救世主的夢想，對蘋果公司創辦人賈伯斯(Steve Jobs)影響甚深的「...",
+      "url": "https://www.worldjournal.com/wj/story/121488/9525703",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "超微蘇姿丰旋風訪台 COMPUTEX前夕掀AI話題",
+      "url": "https://www.worldjournal.com/wj/story/121475/9515976",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "晶片大廠超微（AMD）董事長暨執行長蘇姿丰今天下午搭乘私人專機飛抵台北松山機場，展開快閃訪台行程，外傳今天下午她已先拜會台積電董事長魏哲家爭取更多產能，但相關行程未獲證實。隨著台北國際電腦展（COM...",
+      "url": "https://www.worldjournal.com/wj/story/121475/9515976",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    },
+    {
+      "title": "高盛：AI不僅不是泡沫 還變成防禦交易 下一波押這題材",
+      "url": "https://www.worldjournal.com/wj/story/121208/9510356",
+      "source": "世界日報 AI",
+      "published_at": "2026-05-26T18:40:22Z"
+    }
+  ],
+  "health": [
+    {
+      "title": "輔仁大學跨國研究發現新型EB病毒抗體檢測標記 可提升鼻咽癌早期篩檢準確性",
+      "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPVnFtdmxqNHZvTjJCS0JxZkJ4SmZrUnBLU1RYVnhINkdkMnJWQ09FZEY1SXlWbktLQjhPWjhaU1hlaEVoX3RiR3FfVUE1MGU0ZHk5eXd3cmV6NXhxeHV6ak9hWFVzRDhvaV9tRE1uRzZVbzNnMHBtbXFDSVFkb1dJTldJNkFvOWo0TFE?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T08:00:00Z"
+    },
+    {
+      "title": "失智症最早警訊恐非健忘 研究：很多人先開始聞不到味道",
+      "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBzY2NXMTVaVFEyX2tjOV9ORUFEUlBoQi11TDJRN0hLYlFJeGVtdk56cy0wdTRYckRsQzBNeDh3dkxSU3l3b2txbVZiR1NtNVZETWZZV2tadFlCQnppdHk2Qmx5TG7SAWpBVV95cUxOdjl0dEpFc3FmUG9oUXdPWUZxbDUtcFJsMVlmR3FaUzB3Z1AwVDNhaFByTXc4VVo1WmdsTm43LW1GWkhCYXVmUV9MUzJpdWtSNEFCQkJpUEFvUmdua1FQeUk4LUVIa0JqMnhn?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T04:46:00Z"
+    },
+    {
+      "title": "不孕不只生理問題！醫點名「3大高壓職業」：這作息機率更低",
+      "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE9QU0lqWjVOVU9kV2NMWklzVDB2Mkx4UjJBTGxuWVdLVVZLVkVJYng5eU5qWUc1RnZSSkNsOGJuM1FYeHl3SUJRekZldmt2SlFl?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T18:00:00Z"
+    },
+    {
+      "title": "就怕成為「零號病患」 專家：旅遊避免10大NG動作",
+      "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTFBXS0JscF9HUXlWVjZvNURaeHdsLVlyT0VIblBXbDY5NENlb0FWODUxNHMzZWtTNjJzUmNBakswdFI4bkp4Yzg0NjJ1V0xhQ2xmZ1RsOGlaT1h3aDVXNkhUUm9sVGYxMUxQYTFhUnpB?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T16:28:37Z"
+    },
+    {
+      "title": "45%失智可預防或延緩！專家曝「3超級食物」能保護大腦",
+      "url": "https://news.google.com/rss/articles/CBMiTEFVX3lxTE5JQ09xU3BWZ3BpUHptb0pIbUp5cjhKZGdIc3lvYlpKU0lleW0zRnpQcUtyYW1xUnktZ09ocFBnX2tGbW8tbG8yRlgyMlM?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T03:49:26Z"
+    },
+    {
+      "title": "【智慧生物製藥研究支援事業】⑫：確立糖鏈·凝集素圖形辨識的癌症精密細胞識別平台，結合α射線內用療法提供全新治療方案",
+      "url": "https://news.google.com/rss/articles/CBMid0FVX3lxTFBpM1NlcnBXWHo4RENCN1JHc182QlhhN0M1S291OC11NmU3MkVBWEVuRXptaDdVNmd3blQ1SmVaZkZZR2N3NXZ5cXFPMW9UcTA5VGhHUUpuVl9ONmRZeEhxaElKa0toVnVfRzZMNk82UVdULWk0SnFR?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T02:11:33Z"
+    },
+    {
+      "title": "心肌梗塞不只傷心還傷腦 研究揭示引發情緒認知障礙",
+      "url": "https://news.google.com/rss/articles/CBMixwJBVV95cUxPbS1OcEFPbGtxbDctNVNhSloxMWgwVUFsdXE0SXoxZjg1ZjNtT2t5QVdVWEFOM1hySG8yeFhsbmFidkNYUkxrb08xWktMUlV3cjZqSXdjVEtSajNQamR0NHZwNDFyMU10anVTd0lYYzY5aHNwWGZIbDBqcXRkYTJsQ1hTUzRoaHNNMEdCbDdBM0NvTlc3NXo1MWJKdENBWGlRdG1KY2ZmWFhxVDV2dDQwcFVlQjFFcHB6LTZNaWZLcVJ1OUNvV2F4MzdKWVJuOTNVVC1hVjdtal8yMmw1R2I5NE56VS12UDd6ak12YXJsTzZqNm8xdlpXRVBySWRVMTFyQmc4Nk1XTHdYMnBZZ0MtTjZIVmRpRnJtNnBOU1NsdTQyYjA2NmxhNmExTl9uMjJLdkZzTDZlN1pWRksyeDdQdllJWTI4NnM?oc=5&hl=en-US&gl=US&ceid=US:en",
+      "source": "Google News Health / Medical",
+      "published_at": "2026-05-26T02:06:02Z"
+    }
+  ],
+  "udn_global": [
+    {
+      "title": "告別曼城！傳奇教頭瓜迪奧拉十年謝幕，足壇留下哪些遺產或陰影？",
+      "url": "https://global.udn.com/global_vision/story/8664/9526787?from=udn_ch1020_main_index",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "《當啦啦隊成為本體？》：從草根應援到大女團時代的韓國職棒歌舞進化",
+      "url": "https://global.udn.com/global_vision/story/8664/9526818?from=udn_ch1020_main_index",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "家庭主婦重返職場有多難？日本稅制「年收三道牆」如何影響女性職涯選擇",
+      "url": "https://global.udn.com/global_vision/story/8664/9519622?from=udn_ch1020_main_index",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "中國山西82人死亡的礦災：劣跡煤業「陰陽圖紙」造假問題與傷亡數據疑雲",
+      "url": "https://global.udn.com/global_vision/story/8663/9524698?from=udn_ch1020_main_index",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "烏克蘭現場／基輔遭遇近期最大空襲，俄羅斯出動600架無人機與「榛樹飛彈」轟炸",
+      "url": "https://global.udn.com/global_vision/story/8663/9523810?from=udn_ch1020_main_index",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "洪迪亞斯號漢他病毒事件：驗出人傳人安地斯病毒株，WHO疫調追蹤來源是否為阿根廷",
+      "url": "https://global.udn.com/global_vision/story/8662/9488000?from=udn_indexrecommend_ch1020",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    },
+    {
+      "title": "中山陵前的說書人？拆解7位藍營領導人的3種話語政治類型",
+      "url": "https://global.udn.com/global_vision/story/8663/9438655?from=udn_indexrecommend_ch1020",
+      "source": "udn 轉角國際",
+      "published_at": "2026-05-26T18:40:25Z"
+    }
+  ],
+  "koc": [
+    {
+      "title": "Microsoft Secure Boot原始憑證2026年6月到期！不處理未來Windows恐無法更新",
+      "url": "https://www.koc.com.tw/archives/643977",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T17:46:32Z"
+    },
+    {
+      "title": "Ferrari 發表首款純電車 Luce：Jony Ive 操刀設計、1,035 匹馬力、售價近 2,000 萬台幣",
+      "url": "https://www.koc.com.tw/archives/643978",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T17:23:44Z"
+    },
+    {
+      "title": "租霸拍拍屁股留下一地廢墟 立達專業空屋清潔神援助洗去房東惡夢",
+      "url": "https://www.koc.com.tw/archives/643979",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T16:46:14Z"
+    },
+    {
+      "title": "具備鬧鐘功能的提醒 App：「非記不可：絕不會錯過重要事件」",
+      "url": "https://www.koc.com.tw/archives/624645",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T12:11:41Z"
+    },
+    {
+      "title": "虐心神作回歸！《電馭叛客：邊緣行者2》將於 7 月 3 日公開新畫面",
+      "url": "https://www.koc.com.tw/archives/643953",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T08:40:49Z"
+    },
+    {
+      "title": "國外 YouTuber 實測 20 年前 Pentium 4 電腦跑本地 LLM，回答一個問題花了 33 分鐘",
+      "url": "https://www.koc.com.tw/archives/643941",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T08:40:28Z"
+    },
+    {
+      "title": "大摺疊 motorola razr fold 登台，再定義生產力與娛樂使用邊界",
+      "url": "https://www.koc.com.tw/archives/643935",
+      "source": "電腦王阿達",
+      "published_at": "2026-05-26T08:27:02Z"
+    }
+  ],
+  "frequent_miler": [
+    {
+      "title": "Bilt Cash redemptions for BLADE will be a fixed $350 amount, even if flight cost is cheaper",
+      "url": "https://frequentmiler.com/bilt-cash-redemptions-for-blade-will-be-a-fixed-350-amount-even-if-flight-cost-is-cheaper/",
+      "source": "Frequent Miler",
+      "published_at": "2026-05-26T17:45:34Z"
+    },
+    {
+      "title": "Breeze Airways promo: Save 45% on round trip base fares with promo code BIRTHDAY",
+      "url": "https://frequentmiler.com/breeze-airways-promo/",
+      "source": "Frequent Miler",
+      "published_at": "2026-05-26T15:45:03Z"
+    },
+    {
+      "title": "Caesars Rewards Amex Offer: Spend $200 & get $40 back",
+      "url": "https://frequentmiler.com/caesars-rewards-amex-offer-spend-200-get-40-back/",
+      "source": "Frequent Miler",
+      "published_at": "2026-05-26T14:45:32Z"
+    },
+    {
+      "title": "Save $50 with JetBlue Citi Offer when spending $400+",
+      "url": "https://frequentmiler.com/save-50-with-jetblue-citi-offer-when-spending-400/",
+      "source": "Frequent Miler",
+      "published_at": "2026-05-26T13:45:50Z"
+    },
+    {
+      "title": "Miraval Austin: Bottom Line Review",
+      "url": "https://frequentmiler.com/miraval-austin-bottom-line-review/",
+      "source": "Frequent Miler",
+      "published_at": "2026-05-26T01:45:47Z"
+    }
+  ],
+  "frequent_miler_quick_deals": [
+    {
+      "title": "Breeze Airways promo: Save 45% on round trip base fares with promo code BIRTHDAY",
+      "url": "https://frequentmiler.com/breeze-airways-promo/",
+      "source": "Frequent Miler Quick Deals",
+      "published_at": "2026-05-26T15:45:03Z"
+    },
+    {
+      "title": "Caesars Rewards Amex Offer: Spend $200 & get $40 back",
+      "url": "https://frequentmiler.com/caesars-rewards-amex-offer-spend-200-get-40-back/",
+      "source": "Frequent Miler Quick Deals",
+      "published_at": "2026-05-26T14:45:32Z"
+    },
+    {
+      "title": "Save $50 with JetBlue Citi Offer when spending $400+",
+      "url": "https://frequentmiler.com/save-50-with-jetblue-citi-offer-when-spending-400/",
+      "source": "Frequent Miler Quick Deals",
+      "published_at": "2026-05-26T13:45:50Z"
+    },
+    {
+      "title": "60K Choice Privileges points with no annual fee with new Choice Mastercard offer",
+      "url": "https://frequentmiler.com/60k-choice-privileges-points-with-no-annual-fee-with-new-choice-mastercard-offer/",
+      "source": "Frequent Miler Quick Deals",
+      "published_at": "2026-05-25T21:45:52Z"
+    },
+    {
+      "title": "Targeted Hyatt promos: 2K every 2 nights up to 20K; 3X points on stays 2+ nights, more",
+      "url": "https://frequentmiler.com/targeted-hyatt-promos-2k-every-2-nights-up-to-20k-3x-points-on-stays-2-nights-more/",
+      "source": "Frequent Miler Quick Deals",
+      "published_at": "2026-05-25T19:45:29Z"
+    }
+  ]
+}
