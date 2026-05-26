@@ -32,11 +32,15 @@ jobs:
           from email.utils import parsedate_to_datetime
           from datetime import datetime, timezone
 
+          # Google News topics (primary)
           GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_USA = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSkwyMHZNRGxqTjNjd0VnVjZhQzFVVnlnQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_USA_TOPIC = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSkwyMHZNRGxqTjNjd0VnVjZhQzFVVnlnQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+
+          # USA fallback: original search feed
+          GOOGLE_NEWS_USA_SEARCH = "https://news.google.com/rss/search?q=%E7%BE%8E%E5%9C%8B+OR+%E7%99%BD%E5%AE%AE+OR+%E8%8F%AF%E7%9B%9B%E9%A0%93&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_URL = "https://www.koc.com.tw/"
@@ -141,93 +145,7 @@ jobs:
                       re.compile(r'<a[^>]+href="(https://global\.udn\.com/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
                       re.compile(r'<a[^>]+href="(/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
                   ]
-                  seen = set()
-                  items = []
-                  for pattern in patterns:
-                      for match in pattern.finditer(html):
-                          article_url = match.group(1).strip()
-                          if article_url.startswith("/"):
-                              article_url = "https://global.udn.com" + article_url
-                          title = strip_tags(match.group(2))
-                          if not title or len(title) < 8 or article_url in seen:
-                              continue
-                          seen.add(article_url)
-                          items.append({
-                              "title": title,
-                              "url": article_url,
-                              "source": "udn 轉角國際",
-                              "published_at": now_iso()
-                          })
-                          if len(items) >= max_items:
-                              return items
-                  return []
-              except Exception:
-                  return []
-
-          def parse_koc(url, max_items=7):
-              try:
-                  html = fetch_text(url)
-                  patterns = [
-                      re.compile(r'<a[^>]+href="(https://www\.koc\.com\.tw/archives/\d+/?)"[^>]*>(.*?)</a>', re.I | re.S),
-                      re.compile(r'<a[^>]+href="(/archives/\d+/?)"[^>]*>(.*?)</a>', re.I | re.S),
-                  ]
-                  seen = set()
-                  items = []
-                  for pattern in patterns:
-                      for match in pattern.finditer(html):
-                          article_url = match.group(1).strip()
-                          if "/category/" in article_url:
-                              continue
-                          if article_url.startswith("/"):
-                              article_url = "https://www.koc.com.tw" + article_url
-                          title = strip_tags(match.group(2))
-                          if not title or len(title) < 6:
-                              continue
-                          if title in ["最新科技新聞", "AI 新聞與教學", "AI 工具分享與教學"]:
-                              continue
-                          if article_url in seen:
-                              continue
-                          seen.add(article_url)
-                          items.append({
-                              "title": title,
-                              "url": article_url,
-                              "source": "電腦王阿達",
-                              "published_at": now_iso()
-                          })
-                          if len(items) >= max_items:
-                              return items
-                  return []
-              except Exception:
-                  return []
-
-          international_items = parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=15, resolve_google=True)
-          usa_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=10, resolve_google=True)
-
-          tech_items = parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=10, resolve_google=True)
-          taiwan_items = parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True)
-          health_items = parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True)
-
-          udn_items = parse_udn_global(UDN_GLOBAL_URL, max_items=7)
-          koc_items = parse_koc(KOC_URL, max_items=7)
-
-          fm_main_items = parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False)
-          fm_quick_items = parse_rss(FM_QUICK, "Frequent Miler Quick Deals", max_items=5, resolve_google=False)
-
-          data = {
-              "updated_at": now_iso(),
-              "international": international_items,
-              "usa": usa_items,
-              "tech_science": tech_items,
-              "taiwan": taiwan_items,
-              "health": health_items,
-              "udn_global": udn_items,
-              "koc": koc_items,
-              "frequent_miler": fm_main_items,
-              "frequent_miler_quick_deals": fm_quick_items
-          }
-
-          with open("news.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
+              ...
           PY
 
       - name: Commit and push changes
