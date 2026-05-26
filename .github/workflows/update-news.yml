@@ -33,11 +33,12 @@ jobs:
           from datetime import datetime, timezone
 
           GOOGLE_NEWS_INTL = "https://news.google.com/rss/topics/CAAqKggKIiRDQkFTRlFvSUwyMHZNRGx1YlY4U0JYcG9MVlJYR2dKVVZ5Z0FQAQ?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_TECH = "https://news.google.com/rss/search?q=AI&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=美國&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_TECH = "https://news.google.com/rss/topics/CAAqLAgKIiZDQkFTRmdvSkwyMHZNR1ptZHpWbUVnVjZhQzFVVnhvQ1ZGY29BQVAB?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+          GOOGLE_NEWS_USA = "https://news.google.com/rss/search?q=%E7%BE%8E%E5%9C%8B&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_TAIWAN = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFptTXpJU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-          GOOGLE_NEWS_AI = "https://news.google.com/rss/search?q=AI&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
           GOOGLE_NEWS_HEALTH = "https://news.google.com/rss/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNR3QwTlRFU0JYcG9MVlJYS0FBUAE?hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+
+          WORLDJOURNAL_AI_URL = "https://www.worldjournal.com/search/tagging/8877/AI"
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_FEED = "https://www.koc.com.tw/feed"
@@ -59,6 +60,12 @@ jobs:
               req = urllib.request.Request(url, headers=BROWSER_HEADERS)
               with urllib.request.urlopen(req, timeout=30) as resp:
                   return resp.read()
+
+          def fetch_text(url):
+              req = urllib.request.Request(url, headers=BROWSER_HEADERS)
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  charset = resp.headers.get_content_charset() or "utf-8"
+                  return resp.read().decode(charset, errors="ignore")
 
           def to_iso8601(dt_str):
               try:
@@ -115,12 +122,6 @@ jobs:
                   })
               return items
 
-          def fetch_text(url):
-              req = urllib.request.Request(url, headers=BROWSER_HEADERS)
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  charset = resp.headers.get_content_charset() or "utf-8"
-                  return resp.read().decode(charset, errors="ignore")
-
           def strip_tags(text):
               text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
               text = re.sub(r"<style.*?>.*?</style>", "", text, flags=re.S | re.I)
@@ -159,11 +160,73 @@ jobs:
               except Exception:
                   return []
 
+          def parse_worldjournal_ai(url, max_items=7):
+              try:
+                  html = fetch_text(url)
+
+                  title_pattern = re.compile(r'##\s+(.+?)\n', re.S)
+                  meta_pattern = re.compile(r'\n([^\n]{1,12})\s+(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})\s+\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}', re.S)
+                  link_pattern = re.compile(r'href="(https://www\.worldjournal\.com/wj/story/[^"]+|/wj/story/[^"]+)"', re.I)
+
+                  titles = [clean_title(x) for x in title_pattern.findall(html)]
+                  metas = meta_pattern.findall(html)
+                  links = []
+
+                  for m in link_pattern.finditer(html):
+                      article_url = m.group(1).strip()
+                      if article_url.startswith("/"):
+                          article_url = "https://www.worldjournal.com" + article_url
+                      if article_url not in links:
+                          links.append(article_url)
+
+                  items = []
+                  seen = set()
+
+                  max_len = min(len(titles), len(metas))
+                  for i in range(max_len):
+                      title = titles[i]
+                      category = clean_title(metas[i][0])
+                      pub_raw = metas[i][1].strip()
+
+                      if not title or len(title) < 8 or title in seen:
+                          continue
+                      seen.add(title)
+
+                      published_at = pub_raw.replace(" ", "T") + ":00Z"
+                      article_url = links[i] if i < len(links) else url
+
+                      items.append({
+                          "title": title,
+                          "url": article_url,
+                          "source": f"世界日報 AI / {category}",
+                          "published_at": published_at
+                      })
+
+                      if len(items) >= max_items:
+                          break
+
+                  if not items:
+                      items.append({
+                          "title": "世界日報 AI 目前沒有可用新聞項目",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      })
+
+                  return items
+              except Exception as e:
+                  return [{
+                      "title": f"世界日報 AI 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
           international_items = parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=20, resolve_google=True)
           tech_items = parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=20, resolve_google=True)
           usa_items = parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=10, resolve_google=True)
           taiwan_items = parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True)
-          ai_items = parse_rss(GOOGLE_NEWS_AI, "Google News AI", max_items=7, resolve_google=True)
+          ai_items = parse_worldjournal_ai(WORLDJOURNAL_AI_URL, max_items=7)
           health_items = parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True)
 
           udn_items = parse_udn_global(UDN_GLOBAL_URL, max_items=7)
