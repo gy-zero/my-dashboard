@@ -137,10 +137,10 @@
   <div class="main-wrapper">
     <h1>Live Terminal</h1>
     <div class="sub">
-      這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。新聞目前包含 International、AI / Tech、USA / Seattle、Taiwan、Health / Medical、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
+      這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。新聞目前包含 International、AI / Tech、USA、Taiwan、AI News、Health / Medical、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
     </div>
     <div class="notice-box">
-      Google News 類別目前直接使用 RSS topic feed；轉角國際使用 web 抓取；電腦王阿達與 Frequent Miler 使用官方 RSS。桌機版新聞區塊固定最多兩欄，時間格式已統一為 Seattle 本地時間。
+      Google News 類別目前直接使用 RSS topic feed 與 RSS search feed；轉角國際使用 web 抓取；電腦王阿達與 Frequent Miler 使用官方 RSS。桌機版新聞區塊固定最多兩欄，時間格式已統一為 Seattle 本地時間。
     </div>
 
     <h2>📈 Asset Monitoring</h2>
@@ -198,13 +198,18 @@
       </div>
 
       <div class="news-card">
-        <h3>USA / Seattle News</h3>
+        <h3>USA News</h3>
         <ul id="news-usa" class="news-list"><li>Loading...</li></ul>
       </div>
 
       <div class="news-card">
         <h3>Taiwan News</h3>
         <ul id="news-taiwan" class="news-list"><li>Loading...</li></ul>
+      </div>
+
+      <div class="news-card">
+        <h3>AI News</h3>
+        <ul id="news-ai" class="news-list"><li>Loading...</li></ul>
       </div>
 
       <div class="news-card">
@@ -440,6 +445,7 @@
         renderNewsList('news-tech', data.tech_science || []);
         renderNewsList('news-usa', data.usa || []);
         renderNewsList('news-taiwan', data.taiwan || []);
+        renderNewsList('news-ai', data.ai_news || []);
         renderNewsList('news-health', data.health || []);
         renderNewsList('news-global-udn', data.udn_global || []);
         renderNewsList('news-koc', data.koc || []);
@@ -450,7 +456,8 @@
       }catch(err){
         [
           'news-international','news-tech','news-usa','news-taiwan',
-          'news-health','news-global-udn','news-koc','news-fm-main','news-fm-quick'
+          'news-ai','news-health','news-global-udn','news-koc',
+          'news-fm-main','news-fm-quick'
         ].forEach(id=>{
           const el=document.getElementById(id);
           if(el) el.innerHTML='<li>News load failed.</li>';
