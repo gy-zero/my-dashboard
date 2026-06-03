@@ -1,0 +1,25 @@
+{
+  "updated_at": "2026-06-03T07:26:00Z",
+  "assets": [
+    {
+      "name": "VOO",
+      "display_name": "VOO",
+      "currency": "USD",
+      "current": 695.49,
+      "prev": 693.91,
+      "prev2": 690.12,
+      "prev3": 688.40,
+      "stale": false
+    },
+    {
+      "name": "0050.TW",
+      "display_name": "TPE:0050",
+      "currency": "TWD",
+      "current": 105.4,
+      "prev": 105.4,
+      "prev2": 104.8,
+      "prev3": 104.2,
+      "stale": false
+    }
+  ]
+}
