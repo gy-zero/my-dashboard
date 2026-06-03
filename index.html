@@ -137,14 +137,14 @@
   <div class="main-wrapper">
     <h1>Live Terminal</h1>
     <div class="sub">
-      這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。新聞目前包含 International、AI / Tech、USA、Taiwan、AI News、Health / Medical、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
+      這版整合了股票、Seattle 天氣，以及 news.json 新聞快照。股票資料現在改為由 repo 內的 stocks.json 提供；新聞目前包含 International、AI / Tech、USA、Taiwan、AI News、Health / Medical、轉角國際、電腦王阿達，以及 Frequent Miler 兩個 feed，全部由 repo 內的 news.json 提供。
     </div>
     <div class="notice-box">
-      Google News 類別目前直接使用 RSS topic feed 與 RSS search feed；轉角國際使用 web 抓取；電腦王阿達與 Frequent Miler 使用官方 RSS。桌機版新聞區塊固定最多兩欄，時間格式已統一為 Seattle 本地時間。
+      股票區改成讀取 repo 內的 stocks.json，不再直接依賴 Google Sheets CSV，因此可避免 Published Sheet 在重算過程中短暫輸出「載入中」。桌機版新聞區塊固定最多兩欄，時間格式已統一為 Seattle 本地時間。
     </div>
 
     <h2>📈 Asset Monitoring</h2>
-    <div id="asset-source" class="source-tag">Assets: waiting for feed...</div>
+    <div id="asset-source" class="source-tag">Assets: waiting for stocks.json...</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -240,34 +240,7 @@
   </div>
 
   <script>
-    const FEED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS4y4Lretc0TljPYkPjL62_Kx3lTfz7Z0q6hDLFYe1Rah00Yvh2VwI2watJ3iDFO4Wxqscb-NQ_TnvZ/pub?gid=0&single=true&output=csv';
-
-    function parseCSVLine(line){
-      const result=[]; let current='', inQuotes=false;
-      for(let i=0;i<line.length;i++){
-        const c=line[i];
-        if(c==='"'){
-          if(inQuotes && line[i+1]==='"'){ current+='"'; i++; }
-          else inQuotes=!inQuotes;
-        }else if(c===',' && !inQuotes){
-          result.push(current); current='';
-        }else current+=c;
-      }
-      result.push(current);
-      return result.map(v=>v.trim());
-    }
-
-    function parseCSV(text){
-      const lines=text.split(/\r?\n/).filter(line=>line.trim()!=='');
-      if(!lines.length) return [];
-      const headers=parseCSVLine(lines[0]);
-      return lines.slice(1).map(line=>{
-        const cols=parseCSVLine(line);
-        const obj={};
-        headers.forEach((h,i)=>obj[h||`extra_${i}`]=cols[i]||'');
-        return obj;
-      });
-    }
+    const STOCKS_JSON_URL = './stocks.json';
 
     function toNumber(v){
       const cleaned=String(v??'').replace(/,/g,'').trim();
@@ -275,17 +248,28 @@
       return Number.isFinite(num)?num:NaN;
     }
 
-    function fmtValue(value,name=''){
+    function fmtValue(value,name='',currency='USD'){
       const raw=String(value??'').trim();
-      if(!raw) return '—';
       const num=toNumber(value);
-      if(!Number.isFinite(num)) return raw;
-      if(name.startsWith('TPE:')) return `NT$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;
-      return `$${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+      if(!raw && !Number.isFinite(num)) return '—';
+      if(!Number.isFinite(num)) return raw || '—';
+
+      const isTaiwan = currency === 'TWD' || name.startsWith('TPE:') || name.endsWith('.TW') || name.endsWith('.TWO');
+      const prefix = isTaiwan ? 'NT$' : '$';
+      return `${prefix}${num.toLocaleString(undefined,{maximumFractionDigits:2})}`;
     }
 
-    function pct(v){return Number.isFinite(v)?`${v>0?'🟢':v<0?'🔴':'🟡'} ${v.toFixed(2)}%`:'⚪ N/A';}
-    function cls(v){if(!Number.isFinite(v)) return 'flat'; if(v>0) return 'up'; if(v<0) return 'down'; return 'flat';}
+    function pct(v){
+      return Number.isFinite(v) ? `${v>0?'🟢':v<0?'🔴':'🟡'} ${v.toFixed(2)}%` : '⚪ N/A';
+    }
+
+    function cls(v){
+      if(!Number.isFinite(v)) return 'flat';
+      if(v>0) return 'up';
+      if(v<0) return 'down';
+      return 'flat';
+    }
+
     function sparklineHTML(values){
       const nums=values.map(toNumber).filter(v=>Number.isFinite(v));
       if(nums.length<2) return '—';
@@ -321,52 +305,65 @@
       return `${map.year}/${map.month}/${map.day} ${map.hour}:${map.minute} PT`;
     }
 
-    function normalizeSheetTime(raw){
-      const text = String(raw || '').trim();
-      if(!text) return 'n/a';
-
-      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(text)){
-        return `${text.replace(/-/g,'/')} PT`;
-      }
-
-      if(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(text)){
-        return `${text.slice(0,16).replace(/-/g,'/')} PT`;
-      }
-
-      return text.replace(/\s+(PDT|PST|GMT[-−+]\d+.*)$/i, '').replace(/-/g,'/') + ' PT';
+    function normalizeAssetName(name, displayName){
+      if(displayName) return displayName;
+      const raw = String(name || '').trim();
+      if(raw === 'BTC-USD') return 'BTCUSD';
+      if(raw === '0050.TW') return 'TPE:0050';
+      if(raw === '2330.TW') return 'TPE:2330';
+      return raw || '—';
     }
 
     async function runStocks(){
       const tbody=document.getElementById('asset-data');
       const source=document.getElementById('asset-source');
       const error=document.getElementById('asset-error');
+
+      source.textContent='Assets: fetching ./stocks.json...';
+      error.textContent='';
+
       try{
-        const res=await fetch(FEED_CSV_URL+`&v=${Date.now()}`,{cache:'no-store'});
+        const res=await fetch(`${STOCKS_JSON_URL}?v=${Date.now()}`,{cache:'no-store'});
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        const csv=await res.text();
-        const rows=parseCSV(csv);
-        const sourceRow=rows.find(r=>(r.Name||'').startsWith('Source_time'));
-        const dataRows=rows.filter(r=>r.Name && !String(r.Name).startsWith('Source_time'));
-        tbody.innerHTML=dataRows.map(r=>{
-          const name=r.Name||'—';
-          const c=toNumber(r.Current), p=toNumber(r.Prev), p2=toNumber(r.Prev2), p3=toNumber(r.Prev3);
+
+        const text = await res.text();
+        if(!text.trim().startsWith('{')){
+          throw new Error(`stocks.json is not valid JSON: ${text.slice(0,80)}`);
+        }
+
+        const data=JSON.parse(text);
+        const items=Array.isArray(data.assets) ? data.assets : [];
+
+        if(!items.length){
+          throw new Error('No asset data returned');
+        }
+
+        tbody.innerHTML=items.map(item=>{
+          const name = normalizeAssetName(item.name, item.display_name);
+          const currency = item.currency || 'USD';
+          const c=toNumber(item.current);
+          const p=toNumber(item.prev);
+          const p2=toNumber(item.prev2);
+          const p3=toNumber(item.prev3);
           const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN;
           const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN;
+
           return `<tr>
-            <td><strong>${name}</strong></td>
-            <td class="val-col">${fmtValue(r.Current,name)}</td>
-            <td class="val-col">${fmtValue(r.Prev,name)}</td>
-            <td class="val-col">${fmtValue(r.Prev2,name)}</td>
-            <td class="val-col">${fmtValue(r.Prev3,name)}</td>
+            <td><strong>${name}</strong>${item.stale ? '<br><span class="news-meta">Using previous snapshot</span>' : ''}</td>
+            <td class="val-col">${fmtValue(item.current,name,currency)}</td>
+            <td class="val-col">${fmtValue(item.prev,name,currency)}</td>
+            <td class="val-col">${fmtValue(item.prev2,name,currency)}</td>
+            <td class="val-col">${fmtValue(item.prev3,name,currency)}</td>
             <td class="val-col ${cls(d1)}">${pct(d1)}</td>
             <td class="val-col ${cls(d3)}">${pct(d3)}</td>
-            <td class="val-col">${sparklineHTML([r.Prev3,r.Prev2,r.Prev,r.Current])}</td>
+            <td class="val-col">${sparklineHTML([item.prev3,item.prev2,item.prev,item.current])}</td>
           </tr>`;
         }).join('');
-        source.innerHTML=`Assets: Google Sheets feed CSV · Sheet time: <span class="ok">${normalizeSheetTime(sourceRow ? (sourceRow.Current||'') : '')}</span>`;
+
+        source.innerHTML=`Assets: stocks.json loaded · Updated at: <span class="ok">${formatSeattleTime(data.updated_at)}</span>`;
       }catch(err){
         tbody.innerHTML='<tr><td colspan="8" style="text-align:center;">Stock sync failed.</td></tr>';
-        source.textContent='Assets: feed sync failed';
+        source.textContent='Assets: load failed';
         error.textContent=`股票更新失敗：${err.message}`;
       }
     }
@@ -436,10 +433,14 @@
       try{
         const url = './news.json?v=' + Date.now();
         const res = await fetch(url, { cache: 'no-store' });
-        source.textContent = `News: fetch response ${res.status}`;
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const data = await res.json();
+        const text = await res.text();
+        if(!text.trim().startsWith('{')){
+          throw new Error(`news.json is not valid JSON: ${text.slice(0,80)}`);
+        }
+
+        const data = JSON.parse(text);
 
         renderNewsList('news-international', data.international || []);
         renderNewsList('news-tech', data.tech_science || []);
