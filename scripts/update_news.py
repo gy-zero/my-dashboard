@@ -23,6 +23,7 @@ UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
 KOC_FEED = "https://www.koc.com.tw/feed"
 FM_MAIN = "https://frequentmiler.com/feed/"
 FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
+USCCG_ZH_URL = "https://www.uscreditcardguide.com/zh/"
 
 BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -37,11 +38,14 @@ MAX_RETRIES = 3
 BACKOFF_SCHEDULE = [1.5, 3, 6]
 NEWS_JSON_PATH = "news.json"
 
+
 def now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
 def is_retryable_http_error(code):
     return code in (408, 425, 429, 500, 502, 503, 504)
+
 
 def request_with_retry(url, decode_text=False, timeout=REQUEST_TIMEOUT):
     last_error = None
@@ -69,11 +73,14 @@ def request_with_retry(url, decode_text=False, timeout=REQUEST_TIMEOUT):
 
     raise last_error
 
+
 def fetch_bytes(url):
     return request_with_retry(url, decode_text=False, timeout=REQUEST_TIMEOUT)
 
+
 def fetch_text(url):
     return request_with_retry(url, decode_text=True, timeout=REQUEST_TIMEOUT)
+
 
 def to_iso8601(dt_str):
     try:
@@ -84,11 +91,13 @@ def to_iso8601(dt_str):
     except Exception:
         return dt_str or ""
 
+
 def clean_title(title):
     title = unescape(title or "").strip()
     title = re.sub(r"\s+", " ", title)
     title = re.sub(r"\s*-\s*[^-]+$", "", title)
     return title
+
 
 def resolve_google_news_url(url):
     last_error = None
@@ -113,6 +122,7 @@ def resolve_google_news_url(url):
             time.sleep(BACKOFF_SCHEDULE[min(attempt, len(BACKOFF_SCHEDULE) - 1)])
 
     return url
+
 
 def parse_rss(url, source_label, max_items=10, resolve_google=False):
     items = []
@@ -145,6 +155,7 @@ def parse_rss(url, source_label, max_items=10, resolve_google=False):
         })
     return items
 
+
 def strip_tags(text):
     text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
     text = re.sub(r"<style.*?>.*?</style>", "", text, flags=re.S | re.I)
@@ -152,6 +163,7 @@ def strip_tags(text):
     text = unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
 
 def parse_udn_global(url, max_items=7):
     try:
@@ -182,6 +194,7 @@ def parse_udn_global(url, max_items=7):
         return []
     except Exception:
         return []
+
 
 class WorldJournalLinkParser(HTMLParser):
     def __init__(self):
@@ -218,6 +231,7 @@ class WorldJournalLinkParser(HTMLParser):
         self.current_text = []
         self.capture = False
 
+
 def parse_worldjournal_ai(url, max_items=7):
     try:
         html = fetch_text(url)
@@ -231,7 +245,7 @@ def parse_worldjournal_ai(url, max_items=7):
             if len(title) < 8:
                 continue
             if title in seen:
-                continue
+                    continue
             if title == "AI":
                 continue
             seen.add(title)
@@ -263,6 +277,68 @@ def parse_worldjournal_ai(url, max_items=7):
             "published_at": now_iso()
         }]
 
+
+def parse_usccg_zh(url, max_items=5):
+    try:
+        html = fetch_text(url)
+        patterns = [
+            re.compile(r'<h2[^>]*class="entry-title"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>\s*</h2>', re.I | re.S),
+            re.compile(r'<a[^>]+href="(https://www\.uscreditcardguide\.com/zh/[^"]+/)"[^>]*>(.*?)</a>', re.I | re.S),
+            re.compile(r'<a[^>]+href="(/zh/[^"]+/)"[^>]*>(.*?)</a>', re.I | re.S),
+        ]
+
+        seen_urls = set()
+        seen_titles = set()
+        items = []
+
+        for pattern in patterns:
+            for match in pattern.finditer(html):
+                article_url = match.group(1).strip()
+                if article_url.startswith("/"):
+                    article_url = "https://www.uscreditcardguide.com" + article_url
+
+                title = strip_tags(match.group(2))
+                title = clean_title(title)
+
+                if not article_url.startswith("https://www.uscreditcardguide.com/zh/"):
+                    continue
+                if not title or len(title) < 6:
+                    continue
+                if article_url in seen_urls or title in seen_titles:
+                    continue
+                if title in ("首页", "下一页", "上一页"):
+                    continue
+
+                seen_urls.add(article_url)
+                seen_titles.add(title)
+                items.append({
+                    "title": title,
+                    "url": article_url,
+                    "source": "US Credit Card Guide 中文",
+                    "published_at": now_iso()
+                })
+
+                if len(items) >= max_items:
+                    return items
+
+        if not items:
+            return [{
+                "title": "US Credit Card Guide 中文 目前沒有可用新聞項目",
+                "url": url,
+                "source": "System Empty Feed",
+                "published_at": now_iso()
+            }]
+
+        return items
+    except Exception as e:
+        return [{
+            "title": f"US Credit Card Guide 中文 抓取失敗：{str(e)}",
+            "url": url,
+            "source": "System Fallback",
+            "published_at": now_iso()
+        }]
+
+
 def load_previous_data():
     if not os.path.exists(NEWS_JSON_PATH):
         return {}
@@ -272,6 +348,7 @@ def load_previous_data():
     except Exception:
         return {}
 
+
 def is_failed_result(items):
     if not items:
         return True
@@ -279,6 +356,7 @@ def is_failed_result(items):
         return False
     source = str(items[0].get("source", "")).strip()
     return source in ("System Fallback", "System Empty Feed")
+
 
 def mark_as_stale(items):
     stale_items = []
@@ -289,6 +367,7 @@ def mark_as_stale(items):
             stale_items.append(copied)
     return stale_items
 
+
 def fallback_to_previous(items, category_key, previous_data):
     if not is_failed_result(items):
         return items
@@ -296,6 +375,7 @@ def fallback_to_previous(items, category_key, previous_data):
     if isinstance(prev_items, list) and prev_items:
         return mark_as_stale(prev_items)
     return items
+
 
 def main():
     previous_data = load_previous_data()
@@ -350,6 +430,11 @@ def main():
         "frequent_miler_quick_deals",
         previous_data
     )
+    usccg_zh_items = fallback_to_previous(
+        parse_usccg_zh(USCCG_ZH_URL, max_items=5),
+        "usccg_zh",
+        previous_data
+    )
 
     data = {
         "updated_at": now_iso(),
@@ -362,11 +447,13 @@ def main():
         "udn_global": udn_items,
         "koc": koc_items,
         "frequent_miler": fm_main_items,
-        "frequent_miler_quick_deals": fm_quick_items
+        "frequent_miler_quick_deals": fm_quick_items,
+        "usccg_zh": usccg_zh_items
     }
 
     with open(NEWS_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 if __name__ == "__main__":
     main()
