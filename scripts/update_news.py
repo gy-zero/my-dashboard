@@ -245,7 +245,7 @@ def parse_worldjournal_ai(url, max_items=7):
             if len(title) < 8:
                 continue
             if title in seen:
-                    continue
+                continue
             if title == "AI":
                 continue
             seen.add(title)
@@ -279,28 +279,70 @@ def parse_worldjournal_ai(url, max_items=7):
 
 
 def parse_usccg_zh(url, max_items=5):
+    """
+    只抓 USCCG 中文首頁上的「文章標題」，過濾掉作者頁、分頁導航等連結。
+    """
     try:
         html = fetch_text(url)
-        patterns = [
-            re.compile(r'<h2[^>]*class="entry-title"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>\s*</h2>', re.I | re.S),
-            re.compile(r'<a[^>]+href="(https://www\.uscreditcardguide\.com/zh/[^"]+/)"[^>]*>(.*?)</a>', re.I | re.S),
-            re.compile(r'<a[^>]+href="(/zh/[^"]+/)"[^>]*>(.*?)</a>', re.I | re.S),
-        ]
 
+        # 1. 優先：匹配 h2.entry-title 裡的文章標題
+        pattern_entry_title = re.compile(
+            r'<h2[^>]*class="[^"]*entry-title[^"]*"[^>]*>\s*'
+            r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>\s*</h2>',
+            re.I | re.S
+        )
+
+        items = []
         seen_urls = set()
         seen_titles = set()
-        items = []
 
-        for pattern in patterns:
-            for match in pattern.finditer(html):
-                article_url = match.group(1).strip()
-                if article_url.startswith("/"):
-                    article_url = "https://www.uscreditcardguide.com" + article_url
+        for match in pattern_entry_title.finditer(html):
+            article_url = match.group(1).strip()
+            title = strip_tags(match.group(2))
+            title = clean_title(title)
 
+            if article_url.startswith("/"):
+                article_url = "https://www.uscreditcardguide.com" + article_url
+
+            # 只接受 /zh/xxxxx/ 文章頁
+            if not article_url.startswith("https://www.uscreditcardguide.com/zh/"):
+                continue
+            # 排除作者頁與分頁
+            if "/author/" in article_url:
+                continue
+            if "/page/" in article_url:
+                continue
+
+            if not title or len(title) < 6:
+                continue
+            if article_url in seen_urls or title in seen_titles:
+                continue
+
+            seen_urls.add(article_url)
+            seen_titles.add(title)
+            items.append({
+                "title": title,
+                "url": article_url,
+                "source": "US Credit Card Guide 中文",
+                "published_at": now_iso()
+            })
+
+            if len(items) >= max_items:
+                return items
+
+        # 2. 如果 entry-title 一個都沒找到，再用備用 pattern，仍然要過濾 /author/ 和 /page/
+        if not items:
+            fallback_pattern = re.compile(
+                r'<a[^>]+href="(/zh/[^"]+/)"[^>]*>(.*?)</a>',
+                re.I | re.S
+            )
+            for match in fallback_pattern.finditer(html):
+                rel_url = match.group(1).strip()
+                article_url = "https://www.uscreditcardguide.com" + rel_url
                 title = strip_tags(match.group(2))
                 title = clean_title(title)
 
-                if not article_url.startswith("https://www.uscreditcardguide.com/zh/"):
+                if "/author/" in article_url or "/page/" in article_url:
                     continue
                 if not title or len(title) < 6:
                     continue
@@ -319,7 +361,7 @@ def parse_usccg_zh(url, max_items=5):
                 })
 
                 if len(items) >= max_items:
-                    return items
+                    break
 
         if not items:
             return [{
