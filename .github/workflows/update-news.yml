@@ -294,8 +294,9 @@ jobs:
               try:
                   html = fetch_text(url)
 
+                  # 關鍵：處理 |title| 「空欄」 |replies|views|date| 這種格式
                   pattern = re.compile(
-                      r'^\|(?P<title>[^|\n]+?)\|\s*\|(?P<replies>\d+)\|(?P<views>\d+)\|(?P<activity>[^|\n]+)\|$',
+                      r'^\|(?P<title>[^|\n]+?)\|\s*\|\s*(?P<replies>\d+)\|(?P<views>\d+)\|(?P<activity>[^|\n]+)\|$',
                       re.M
                   )
 
