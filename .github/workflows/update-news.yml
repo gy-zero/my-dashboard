@@ -303,9 +303,17 @@ jobs:
               try:
                   html = fetch_text(url)
 
+                  print("=== USCCG ZH first 1200 chars ===")
+                  print(html[:1200])
+                  print("=== END USCCG ZH preview ===")
+
+                  matches = re.findall(r'(?m)^##\s+(.+?)\s*$', html)
+
+                  print("USCCG ZH MATCH COUNT =", len(matches))
+                  print("USCCG ZH FIRST 10 RAW TITLES =", matches[:10])
+
                   seen = set()
                   items = []
-                  matches = re.findall(r'(?m)^##\s+(.+?)\s*$', html)
 
                   for raw_title in matches:
                       title = clean_title(strip_tags(raw_title))
@@ -330,6 +338,9 @@ jobs:
                       if len(items) >= max_items:
                           break
 
+                  print("USCCG ZH FINAL COUNT =", len(items))
+                  print("USCCG ZH FIRST 5 CLEAN TITLES =", [x["title"] for x in items[:5]])
+
                   if not items:
                       return [{
                           "title": "US Credit Card Guide ZH 目前沒有可用新聞項目",
@@ -341,6 +352,7 @@ jobs:
                   return items
 
               except Exception as e:
+                  print("USCCG ZH ERROR =", repr(e))
                   return [{
                       "title": f"US Credit Card Guide ZH 抓取失敗：{str(e)}",
                       "url": url,
