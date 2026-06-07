@@ -30,6 +30,7 @@ jobs:
           import socket
           import time
           import urllib.error
+          import urllib.parse
           import urllib.request
           import xml.etree.ElementTree as ET
           from datetime import datetime, timezone
@@ -45,6 +46,8 @@ jobs:
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_FEED = "https://www.koc.com.tw/feed"
           USCCG_EN_URL = "https://www.uscreditcardguide.com/en/"
+          USCARDFORUM_TOP_URL = "https://www.uscardforum.com/top"
+          DOCTOR_OF_CREDIT_URL = "https://www.doctorofcredit.com/"
           FM_MAIN = "https://frequentmiler.com/feed/"
           FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
 
@@ -129,6 +132,14 @@ jobs:
               text = unescape(text)
               text = re.sub(r"\s+", " ", text).strip()
               return text
+
+
+          def slugify_title(title):
+              t = title.strip().lower()
+              t = re.sub(r"[^\w\s-]", "", t, flags=re.U)
+              t = re.sub(r"\s+", "-", t)
+              t = re.sub(r"-+", "-", t).strip("-")
+              return t
 
 
           def resolve_google_news_url(url):
@@ -279,6 +290,117 @@ jobs:
                   }]
 
 
+          def parse_uscardforum_top(url, max_items=15):
+              try:
+                  html = fetch_text(url)
+                  lines = html.splitlines()
+
+                  items = []
+                  seen = set()
+
+                  for line in lines:
+                      line = line.strip()
+                      if not line.startswith("|"):
+                          continue
+
+                      parts = [p.strip() for p in line.split("|")]
+
+                      if len(parts) < 4:
+                          continue
+
+                      title = clean_title(parts[1] if len(parts) > 1 else "")
+                      if not title or title in ("话题", "--") or len(title) < 4:
+                          continue
+
+                      article_url = url + "#top-" + urllib.parse.quote(slugify_title(title))
+
+                      if title in seen:
+                          continue
+                      seen.add(title)
+
+                      items.append({
+                          "title": title,
+                          "url": article_url,
+                          "source": "美卡論壇 Top",
+                          "published_at": now_iso()
+                      })
+
+                      if len(items) >= max_items:
+                          break
+
+                  if not items:
+                      return [{
+                          "title": "美卡論壇 Top 目前沒有可用話題",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      }]
+
+                  return items
+
+              except Exception as e:
+                  return [{
+                      "title": f"美卡論壇 Top 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
+
+          def parse_doctor_of_credit(url, max_items=15):
+              try:
+                  html = fetch_text(url)
+
+                  latest_idx = html.find("# Latest articles")
+                  segment = html[latest_idx:] if latest_idx != -1 else html
+
+                  lines = [line.strip() for line in segment.splitlines() if line.strip()]
+                  items = []
+                  seen = set()
+
+                  for line in lines:
+                      if "Read More" not in line:
+                          continue
+
+                      title = clean_title(strip_tags(line.replace("Read More →", "").replace("Read More", "")))
+
+                      if not title or len(title) < 12:
+                          continue
+                      if title in seen:
+                          continue
+
+                      seen.add(title)
+                      article_url = "https://www.google.com/search?q=" + urllib.parse.quote(f'site:doctorofcredit.com "{title}"')
+
+                      items.append({
+                          "title": title,
+                          "url": article_url,
+                          "source": "Doctor of Credit",
+                          "published_at": now_iso()
+                      })
+
+                      if len(items) >= max_items:
+                          break
+
+                  if not items:
+                      return [{
+                          "title": "Doctor of Credit 目前沒有可用文章",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      }]
+
+                  return items
+
+              except Exception as e:
+                  return [{
+                      "title": f"Doctor of Credit 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
+
           def load_previous_data():
               if not os.path.exists(NEWS_JSON_PATH):
                   return {}
@@ -370,6 +492,16 @@ jobs:
                   "frequent_miler_quick_deals",
                   previous_data
               )
+              uscardforum_top_items = fallback_to_previous(
+                  parse_uscardforum_top(USCARDFORUM_TOP_URL, max_items=15),
+                  "uscardforum_top",
+                  previous_data
+              )
+              doc_items = fallback_to_previous(
+                  parse_doctor_of_credit(DOCTOR_OF_CREDIT_URL, max_items=15),
+                  "doctor_of_credit",
+                  previous_data
+              )
 
               data = {
                   "updated_at": now_iso(),
@@ -382,7 +514,9 @@ jobs:
                   "koc": koc_items,
                   "usccg_en": usccg_en_items,
                   "frequent_miler": fm_main_items,
-                  "frequent_miler_quick_deals": fm_quick_items
+                  "frequent_miler_quick_deals": fm_quick_items,
+                  "uscardforum_top": uscardforum_top_items,
+                  "doctor_of_credit": doc_items
               }
 
               with open(NEWS_JSON_PATH, "w", encoding="utf-8") as f:
