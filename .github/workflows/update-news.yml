@@ -46,6 +46,7 @@ jobs:
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_FEED = "https://www.koc.com.tw/feed"
           USCCG_EN_URL = "https://www.uscreditcardguide.com/en/"
+          USCCG_ZH_URL = "https://www.uscreditcardguide.com/zh/"
           USCARDFORUM_TOP_URL = "https://www.uscardforum.com/top"
           USCARDFORUM_TOP_JSON_URL = "https://www.uscardforum.com/top.json"
           USCARDFORUM_LATEST_JSON_URL = "https://www.uscardforum.com/latest.json"
@@ -280,7 +281,7 @@ jobs:
                       items.append({
                           "title": title,
                           "url": article_url,
-                          "source": "US Credit Card Guide",
+                          "source": "US Credit Card Guide EN",
                           "published_at": now_iso()
                       })
 
@@ -289,7 +290,7 @@ jobs:
 
                   if not items:
                       return [{
-                          "title": "US Credit Card Guide 目前沒有可用新聞項目",
+                          "title": "US Credit Card Guide EN 目前沒有可用新聞項目",
                           "url": url,
                           "source": "System Empty Feed",
                           "published_at": now_iso()
@@ -299,7 +300,61 @@ jobs:
 
               except Exception as e:
                   return [{
-                      "title": f"US Credit Card Guide 抓取失敗：{str(e)}",
+                      "title": f"US Credit Card Guide EN 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
+
+          def parse_usccg_zh(url, max_items=7):
+              try:
+                  html = fetch_text(url)
+
+                  pattern = re.compile(
+                      r'##\s+(.+?)\n.*?Read more',
+                      re.S
+                  )
+
+                  seen = set()
+                  items = []
+
+                  for match in pattern.finditer(html):
+                      title = clean_title(strip_tags(match.group(1)))
+
+                      if not title or len(title) < 8:
+                          continue
+                      if title in seen:
+                          continue
+
+                      seen.add(title)
+                      search_url = "https://www.google.com/search?q=" + urllib.parse.quote(
+                          f'site:uscreditcardguide.com/zh "{title}"'
+                      )
+
+                      items.append({
+                          "title": title,
+                          "url": search_url,
+                          "source": "US Credit Card Guide ZH",
+                          "published_at": now_iso()
+                      })
+
+                      if len(items) >= max_items:
+                          break
+
+                  if not items:
+                      return [{
+                          "title": "US Credit Card Guide ZH 目前沒有可用新聞項目",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      }]
+
+                  return items
+
+              except Exception as e:
+                  return [{
+                      "title": f"US Credit Card Guide ZH 抓取失敗：{str(e)}",
                       "url": url,
                       "source": "System Fallback",
                       "published_at": now_iso()
@@ -322,12 +377,10 @@ jobs:
                       continue
                   if not slug or not topic_id:
                       continue
-                  if topic.get("pinned_globally") or topic.get("pinned"):
-                      pass
                   if title in seen:
                       continue
 
-                  seen.add(title)
+                      seen.add(title)
                   article_url = f"https://www.uscardforum.com/t/{urllib.parse.quote(slug)}/{topic_id}"
 
                   items.append({
@@ -344,17 +397,14 @@ jobs:
 
 
           def parse_uscardforum_top(url, max_items=15):
-              debug_errors = []
-
               for api_url in (USCARDFORUM_TOP_JSON_URL, USCARDFORUM_LATEST_JSON_URL):
                   try:
                       payload = fetch_json(api_url)
                       items = extract_topics_from_discourse_json(payload, max_items=max_items)
                       if items:
                           return items
-                      debug_errors.append(f"{api_url}: no topics")
-                  except Exception as e:
-                      debug_errors.append(f"{api_url}: {repr(e)}")
+                  except Exception:
+                      pass
 
               return [{
                   "title": "美卡論壇 Top 目前沒有可用話題",
@@ -499,6 +549,11 @@ jobs:
                   "usccg_en",
                   previous_data
               )
+              usccg_zh_items = fallback_to_previous(
+                  parse_usccg_zh(USCCG_ZH_URL, max_items=7),
+                  "usccg_zh",
+                  previous_data
+              )
               fm_main_items = fallback_to_previous(
                   parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False),
                   "frequent_miler",
@@ -530,6 +585,7 @@ jobs:
                   "udn_global": udn_items,
                   "koc": koc_items,
                   "usccg_en": usccg_en_items,
+                  "usccg_zh": usccg_zh_items,
                   "frequent_miler": fm_main_items,
                   "frequent_miler_quick_deals": fm_quick_items,
                   "uscardforum_top": uscardforum_top_items,
