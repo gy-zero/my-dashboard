@@ -294,7 +294,10 @@ jobs:
               try:
                   html = fetch_text(url)
 
-                  # 關鍵：處理 |title| 「空欄」 |replies|views|date| 這種格式
+                  print("=== USCARDFORUM /top first 1200 chars ===")
+                  print(html[:1200])
+                  print("=== END /top preview ===")
+
                   pattern = re.compile(
                       r'^\|(?P<title>[^|\n]+?)\|\s*\|\s*(?P<replies>\d+)\|(?P<views>\d+)\|(?P<activity>[^|\n]+)\|$',
                       re.M
@@ -331,6 +334,9 @@ jobs:
                       if len(items) >= max_items:
                           break
 
+                  print("MATCHED COUNT =", len(items))
+                  print("FIRST 3 TITLES =", [x["title"] for x in items[:3]])
+
                   if not items:
                       return [{
                           "title": "美卡論壇 Top 目前沒有可用話題",
@@ -342,6 +348,7 @@ jobs:
                   return items
 
               except Exception as e:
+                  print("USCARDFORUM ERROR =", repr(e))
                   return [{
                       "title": f"美卡論壇 Top 抓取失敗：{str(e)}",
                       "url": url,
