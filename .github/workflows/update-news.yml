@@ -45,7 +45,6 @@ jobs:
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_FEED = "https://www.koc.com.tw/feed"
-          USCCG_EN_URL = "https://www.uscreditcardguide.com/en/"
           USCCG_ZH_URL = "https://www.uscreditcardguide.com/zh/"
           USCARDFORUM_TOP_URL = "https://www.uscardforum.com/top"
           USCARDFORUM_TOP_JSON_URL = "https://www.uscardforum.com/top.json"
@@ -246,7 +245,7 @@ jobs:
                   return []
 
 
-          def parse_usccg_html(url, source_label, path_prefix, max_items=7):
+          def parse_usccg(url, max_items=7):
               try:
                   html = fetch_text(url)
 
@@ -264,8 +263,6 @@ jobs:
 
                       if not article_url.startswith("https://www.uscreditcardguide.com/"):
                           continue
-                      if path_prefix and path_prefix not in article_url:
-                          continue
                       if article_url.rstrip("/") == url.rstrip("/"):
                           continue
                       if "/author/" in article_url or "/tag/" in article_url or "/page/" in article_url or "/category/" in article_url:
@@ -279,7 +276,7 @@ jobs:
                       items.append({
                           "title": title,
                           "url": article_url,
-                          "source": source_label,
+                          "source": "US Credit Card Guide",
                           "published_at": now_iso()
                       })
 
@@ -288,7 +285,7 @@ jobs:
 
                   if not items:
                       return [{
-                          "title": f"{source_label} 目前沒有可用新聞項目",
+                          "title": "US Credit Card Guide 目前沒有可用新聞項目",
                           "url": url,
                           "source": "System Empty Feed",
                           "published_at": now_iso()
@@ -298,29 +295,11 @@ jobs:
 
               except Exception as e:
                   return [{
-                      "title": f"{source_label} 抓取失敗：{str(e)}",
+                      "title": f"US Credit Card Guide 抓取失敗：{str(e)}",
                       "url": url,
                       "source": "System Fallback",
                       "published_at": now_iso()
                   }]
-
-
-          def parse_usccg_en(url, max_items=7):
-              return parse_usccg_html(
-                  url=url,
-                  source_label="US Credit Card Guide EN",
-                  path_prefix="https://www.uscreditcardguide.com/",
-                  max_items=max_items
-              )
-
-
-          def parse_usccg_zh(url, max_items=7):
-              return parse_usccg_html(
-                  url=url,
-                  source_label="US Credit Card Guide ZH",
-                  path_prefix="https://www.uscreditcardguide.com/",
-                  max_items=max_items
-              )
 
 
           def extract_topics_from_discourse_json(payload, max_items=15):
@@ -508,14 +487,9 @@ jobs:
                   "koc",
                   previous_data
               )
-              usccg_en_items = fallback_to_previous(
-                  parse_usccg_en(USCCG_EN_URL, max_items=7),
-                  "usccg_en",
-                  previous_data
-              )
-              usccg_zh_items = fallback_to_previous(
-                  parse_usccg_zh(USCCG_ZH_URL, max_items=7),
-                  "usccg_zh",
+              usccg_items = fallback_to_previous(
+                  parse_usccg(USCCG_ZH_URL, max_items=7),
+                  "usccg",
                   previous_data
               )
               fm_main_items = fallback_to_previous(
@@ -548,8 +522,7 @@ jobs:
                   "health": health_items,
                   "udn_global": udn_items,
                   "koc": koc_items,
-                  "usccg_en": usccg_en_items,
-                  "usccg_zh": usccg_zh_items,
+                  "usccg": usccg_items,
                   "frequent_miler": fm_main_items,
                   "frequent_miler_quick_deals": fm_quick_items,
                   "uscardforum_top": uscardforum_top_items,
