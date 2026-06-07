@@ -275,6 +275,19 @@
       return 'flat';
     }
 
+    function compareClass(leftValue, rightValue){
+      const leftNum = toNumber(leftValue);
+      const rightNum = toNumber(rightValue);
+      if(!Number.isFinite(leftNum) || !Number.isFinite(rightNum)) return '';
+      if(leftNum > rightNum) return 'up';
+      if(leftNum < rightNum) return 'down';
+      return 'flat';
+    }
+
+    function valueCellHTML(value, name, currency, className=''){
+      return `<span class="${className}">${fmtValue(value, name, currency)}</span>`;
+    }
+
     function sparklineHTML(values){
       const nums=values.map(toNumber).filter(v=>Number.isFinite(v));
       if(nums.length<2) return '—';
@@ -353,12 +366,16 @@
           const d1=Number.isFinite(c)&&Number.isFinite(p)&&p!==0?((c-p)/p)*100:NaN;
           const d3=Number.isFinite(c)&&Number.isFinite(p3)&&p3!==0?((c-p3)/p3)*100:NaN;
 
+          const prevCls = compareClass(item.prev, item.current);
+          const prev2Cls = compareClass(item.prev2, item.prev);
+          const prev3Cls = compareClass(item.prev3, item.prev2);
+
           return `<tr>
             <td><strong>${name}</strong>${item.stale ? '<br><span class="news-meta">Using previous snapshot</span>' : ''}</td>
             <td class="val-col">${fmtValue(item.current,name,currency)}</td>
-            <td class="val-col">${fmtValue(item.prev,name,currency)}</td>
-            <td class="val-col">${fmtValue(item.prev2,name,currency)}</td>
-            <td class="val-col">${fmtValue(item.prev3,name,currency)}</td>
+            <td class="val-col">${valueCellHTML(item.prev,name,currency,prevCls)}</td>
+            <td class="val-col">${valueCellHTML(item.prev2,name,currency,prev2Cls)}</td>
+            <td class="val-col">${valueCellHTML(item.prev3,name,currency,prev3Cls)}</td>
             <td class="val-col ${cls(d1)}">${pct(d1)}</td>
             <td class="val-col ${cls(d3)}">${pct(d3)}</td>
             <td class="val-col">${sparklineHTML([item.prev3,item.prev2,item.prev,item.current])}</td>
