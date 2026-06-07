@@ -44,7 +44,7 @@ jobs:
 
           UDN_GLOBAL_URL = "https://global.udn.com/global_vision/index"
           KOC_FEED = "https://www.koc.com.tw/feed"
-          USCCG_EN_FEED = "https://www.uscreditcardguide.com/en/feed/"
+          USCCG_EN_URL = "https://www.uscreditcardguide.com/en/"
           FM_MAIN = "https://frequentmiler.com/feed/"
           FM_QUICK = "https://frequentmiler.com/category/quick-deals/feed/"
 
@@ -122,6 +122,15 @@ jobs:
               return title
 
 
+          def strip_tags(text):
+              text = re.sub(r"<script.*?>.*?</script>", "", text, flags=re.S | re.I)
+              text = re.sub(r"<style.*?>.*?</style>", "", text, flags=re.S | re.I)
+              text = re.sub(r"<[^>]+>", " ", text)
+              text = unescape(text)
+              text = re.sub(r"\s+", " ", text).strip()
+              return text
+
+
           def resolve_google_news_url(url):
               last_error = None
 
@@ -132,4 +141,266 @@ jobs:
                       with opener.open(req, timeout=15) as resp:
                           return resp.geturl()
                   except urllib.error.HTTPError as e:
-                      last_error 
+                      last_error = e
+                      if not is_retryable_http_error(getattr(e, "code", None)):
+                          break
+                  except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+                      last_error = e
+                  except Exception as e:
+                      last_error = e
+                      break
+
+                  if attempt < MAX_RETRIES - 1:
+                      time.sleep(BACKOFF_SCHEDULE[min(attempt, len(BACKOFF_SCHEDULE) - 1)])
+
+              return url
+
+
+          def parse_rss(url, source_label, max_items=10, resolve_google=False):
+              items = []
+              try:
+                  xml_data = fetch_bytes(url)
+                  root = ET.fromstring(xml_data)
+                  channel = root.find("channel")
+                  if channel is not None:
+                      for item in channel.findall("item"):
+                          title = clean_title(item.findtext("title", default=""))
+                          link = item.findtext("link", default="").strip()
+                          pub_date = item.findtext("pubDate", default="").strip()
+                          if not title or not link:
+                              continue
+                          final_link = resolve_google_news_url(link) if resolve_google else link
+                          items.append({
+                              "title": title,
+                              "url": final_link,
+                              "source": source_label,
+                              "published_at": to_iso8601(pub_date)
+                          })
+                          if len(items) >= max_items:
+                              break
+              except Exception as e:
+                  items.append({
+                      "title": f"{source_label} 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  })
+              return items
+
+
+          def parse_udn_global(url, max_items=7):
+              try:
+                  html = fetch_text(url)
+                  patterns = [
+                      re.compile(r'<a[^>]+href="(https://global\.udn\.com/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                      re.compile(r'<a[^>]+href="(/global_vision/story/[^"]+)"[^>]*>(.*?)</a>', re.I | re.S),
+                  ]
+                  seen = set()
+                  items = []
+                  for pattern in patterns:
+                      for match in pattern.finditer(html):
+                          article_url = match.group(1).strip()
+                          if article_url.startswith("/"):
+                              article_url = "https://global.udn.com" + article_url
+                          title = strip_tags(match.group(2))
+                          if not title or len(title) < 8 or article_url in seen:
+                              continue
+                          seen.add(article_url)
+                          items.append({
+                              "title": title,
+                              "url": article_url,
+                              "source": "udn 轉角國際",
+                              "published_at": now_iso()
+                          })
+                          if len(items) >= max_items:
+                              return items
+                  return []
+              except Exception:
+                  return []
+
+
+          def parse_usccg_en(url, max_items=5):
+              try:
+                  html = fetch_text(url)
+
+                  pattern = re.compile(
+                      r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>\s*</h2>',
+                      re.I | re.S
+                  )
+
+                  seen = set()
+                  items = []
+
+                  for match in pattern.finditer(html):
+                      article_url = match.group(1).strip()
+                      title = clean_title(strip_tags(match.group(2)))
+
+                      if article_url.startswith("/"):
+                          article_url = "https://www.uscreditcardguide.com" + article_url
+
+                      if not article_url.startswith("https://www.uscreditcardguide.com/"):
+                          continue
+                      if article_url in ("https://www.uscreditcardguide.com/", "https://www.uscreditcardguide.com/en/"):
+                          continue
+                      if "/author/" in article_url or "/tag/" in article_url or "/page/" in article_url or "/category/" in article_url:
+                          continue
+                      if len(title) < 8:
+                          continue
+                      if article_url in seen:
+                          continue
+
+                      seen.add(article_url)
+                      items.append({
+                          "title": title,
+                          "url": article_url,
+                          "source": "US Credit Card Guide",
+                          "published_at": now_iso()
+                      })
+
+                      if len(items) >= max_items:
+                          break
+
+                  if not items:
+                      return [{
+                          "title": "US Credit Card Guide 目前沒有可用新聞項目",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      }]
+
+                  return items
+
+              except Exception as e:
+                  return [{
+                      "title": f"US Credit Card Guide 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
+
+          def load_previous_data():
+              if not os.path.exists(NEWS_JSON_PATH):
+                  return {}
+              try:
+                  with open(NEWS_JSON_PATH, "r", encoding="utf-8") as f:
+                      return json.load(f)
+              except Exception:
+                  return {}
+
+
+          def is_failed_result(items):
+              if not items:
+                  return True
+              if len(items) != 1:
+                  return False
+              source = str(items[0].get("source", "")).strip()
+              return source in ("System Fallback", "System Empty Feed")
+
+
+          def mark_as_stale(items):
+              stale_items = []
+              for item in items:
+                  if isinstance(item, dict):
+                      copied = dict(item)
+                      copied["stale"] = True
+                      stale_items.append(copied)
+              return stale_items
+
+
+          def fallback_to_previous(items, category_key, previous_data):
+              if not is_failed_result(items):
+                  return items
+              prev_items = previous_data.get(category_key, [])
+              if isinstance(prev_items, list) and prev_items:
+                  return mark_as_stale(prev_items)
+              return items
+
+
+          def main():
+              previous_data = load_previous_data()
+
+              international_items = fallback_to_previous(
+                  parse_rss(GOOGLE_NEWS_INTL, "Google News International", max_items=20, resolve_google=True),
+                  "international",
+                  previous_data
+              )
+              tech_items = fallback_to_previous(
+                  parse_rss(GOOGLE_NEWS_TECH, "Google News AI / Tech", max_items=20, resolve_google=True),
+                  "tech_science",
+                  previous_data
+              )
+              usa_items = fallback_to_previous(
+                  parse_rss(GOOGLE_NEWS_USA, "Google News USA", max_items=10, resolve_google=True),
+                  "usa",
+                  previous_data
+              )
+              taiwan_items = fallback_to_previous(
+                  parse_rss(GOOGLE_NEWS_TAIWAN, "Google News Taiwan", max_items=10, resolve_google=True),
+                  "taiwan",
+                  previous_data
+              )
+              health_items = fallback_to_previous(
+                  parse_rss(GOOGLE_NEWS_HEALTH, "Google News Health / Medical", max_items=7, resolve_google=True),
+                  "health",
+                  previous_data
+              )
+              udn_items = fallback_to_previous(
+                  parse_udn_global(UDN_GLOBAL_URL, max_items=7),
+                  "udn_global",
+                  previous_data
+              )
+              koc_items = fallback_to_previous(
+                  parse_rss(KOC_FEED, "電腦王阿達", max_items=7, resolve_google=False),
+                  "koc",
+                  previous_data
+              )
+              usccg_en_items = fallback_to_previous(
+                  parse_usccg_en(USCCG_EN_URL, max_items=5),
+                  "usccg_en",
+                  previous_data
+              )
+              fm_main_items = fallback_to_previous(
+                  parse_rss(FM_MAIN, "Frequent Miler", max_items=5, resolve_google=False),
+                  "frequent_miler",
+                  previous_data
+              )
+              fm_quick_items = fallback_to_previous(
+                  parse_rss(FM_QUICK, "Frequent Miler Quick Deals", max_items=5, resolve_google=False),
+                  "frequent_miler_quick_deals",
+                  previous_data
+              )
+
+              data = {
+                  "updated_at": now_iso(),
+                  "international": international_items,
+                  "tech_science": tech_items,
+                  "usa": usa_items,
+                  "taiwan": taiwan_items,
+                  "health": health_items,
+                  "udn_global": udn_items,
+                  "koc": koc_items,
+                  "usccg_en": usccg_en_items,
+                  "frequent_miler": fm_main_items,
+                  "frequent_miler_quick_deals": fm_quick_items
+              }
+
+              with open(NEWS_JSON_PATH, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add news.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Auto-update news.json"
+          git push
