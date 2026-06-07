@@ -219,7 +219,7 @@ jobs:
                   return []
 
 
-          def parse_usccg_en(url, max_items=5):
+          def parse_usccg_en(url, max_items=7):
               try:
                   html = fetch_text(url)
 
@@ -356,7 +356,7 @@ jobs:
                   previous_data
               )
               usccg_en_items = fallback_to_previous(
-                  parse_usccg_en(USCCG_EN_URL, max_items=5),
+                  parse_usccg_en(USCCG_EN_URL, max_items=7),
                   "usccg_en",
                   previous_data
               )
