@@ -311,16 +311,16 @@ jobs:
               try:
                   html = fetch_text(url)
 
-                  pattern = re.compile(
-                      r'##\s+(.+?)\n.*?Read more',
-                      re.S
-                  )
-
+                  blocks = re.split(r'\bRead more\b', html, flags=re.I)
                   seen = set()
                   items = []
 
-                  for match in pattern.finditer(html):
-                      title = clean_title(strip_tags(match.group(1)))
+                  for block in blocks:
+                      m = re.search(r'##\s+(.+)', block)
+                      if not m:
+                          continue
+
+                      title = clean_title(strip_tags(m.group(1)))
 
                       if not title or len(title) < 8:
                           continue
@@ -380,7 +380,7 @@ jobs:
                   if title in seen:
                       continue
 
-                      seen.add(title)
+                  seen.add(title)
                   article_url = f"https://www.uscardforum.com/t/{urllib.parse.quote(slug)}/{topic_id}"
 
                   items.append({
@@ -437,7 +437,9 @@ jobs:
                           continue
 
                       seen.add(title)
-                      article_url = "https://www.google.com/search?q=" + urllib.parse.quote(f'site:doctorofcredit.com "{title}"')
+                      article_url = "https://www.google.com/search?q=" + urllib.parse.quote(
+                          f'site:doctorofcredit.com "{title}"'
+                      )
 
                       items.append({
                           "title": title,
