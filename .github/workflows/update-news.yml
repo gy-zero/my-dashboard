@@ -151,6 +151,13 @@ jobs:
               return text
 
 
+          def absolutize_usccg_url(article_url):
+              article_url = article_url.strip()
+              if article_url.startswith("/"):
+                  article_url = "https://www.uscreditcardguide.com" + article_url
+              return article_url
+
+
           def resolve_google_news_url(url):
               last_error = None
 
@@ -239,7 +246,7 @@ jobs:
                   return []
 
 
-          def parse_usccg_en(url, max_items=7):
+          def parse_usccg_html(url, source_label, path_prefix, max_items=7):
               try:
                   html = fetch_text(url)
 
@@ -252,15 +259,14 @@ jobs:
                   items = []
 
                   for match in pattern.finditer(html):
-                      article_url = match.group(1).strip()
+                      article_url = absolutize_usccg_url(match.group(1))
                       title = clean_title(strip_tags(match.group(2)))
-
-                      if article_url.startswith("/"):
-                          article_url = "https://www.uscreditcardguide.com" + article_url
 
                       if not article_url.startswith("https://www.uscreditcardguide.com/"):
                           continue
-                      if article_url in ("https://www.uscreditcardguide.com/", "https://www.uscreditcardguide.com/en/"):
+                      if path_prefix and path_prefix not in article_url:
+                          continue
+                      if article_url.rstrip("/") == url.rstrip("/"):
                           continue
                       if "/author/" in article_url or "/tag/" in article_url or "/page/" in article_url or "/category/" in article_url:
                           continue
@@ -273,7 +279,7 @@ jobs:
                       items.append({
                           "title": title,
                           "url": article_url,
-                          "source": "US Credit Card Guide EN",
+                          "source": source_label,
                           "published_at": now_iso()
                       })
 
@@ -282,7 +288,7 @@ jobs:
 
                   if not items:
                       return [{
-                          "title": "US Credit Card Guide EN 目前沒有可用新聞項目",
+                          "title": f"{source_label} 目前沒有可用新聞項目",
                           "url": url,
                           "source": "System Empty Feed",
                           "published_at": now_iso()
@@ -292,73 +298,29 @@ jobs:
 
               except Exception as e:
                   return [{
-                      "title": f"US Credit Card Guide EN 抓取失敗：{str(e)}",
+                      "title": f"{source_label} 抓取失敗：{str(e)}",
                       "url": url,
                       "source": "System Fallback",
                       "published_at": now_iso()
                   }]
+
+
+          def parse_usccg_en(url, max_items=7):
+              return parse_usccg_html(
+                  url=url,
+                  source_label="US Credit Card Guide EN",
+                  path_prefix="https://www.uscreditcardguide.com/",
+                  max_items=max_items
+              )
 
 
           def parse_usccg_zh(url, max_items=7):
-              try:
-                  html = fetch_text(url)
-
-                  print("=== USCCG ZH first 1200 chars ===")
-                  print(html[:1200])
-                  print("=== END USCCG ZH preview ===")
-
-                  matches = re.findall(r'(?m)^##\s+(.+?)\s*$', html)
-
-                  print("USCCG ZH MATCH COUNT =", len(matches))
-                  print("USCCG ZH FIRST 10 RAW TITLES =", matches[:10])
-
-                  seen = set()
-                  items = []
-
-                  for raw_title in matches:
-                      title = clean_title(strip_tags(raw_title))
-
-                      if not title or len(title) < 8:
-                          continue
-                      if title in seen:
-                          continue
-
-                      seen.add(title)
-                      search_url = "https://www.google.com/search?q=" + urllib.parse.quote(
-                          f'site:uscreditcardguide.com/zh "{title}"'
-                      )
-
-                      items.append({
-                          "title": title,
-                          "url": search_url,
-                          "source": "US Credit Card Guide ZH",
-                          "published_at": now_iso()
-                      })
-
-                      if len(items) >= max_items:
-                          break
-
-                  print("USCCG ZH FINAL COUNT =", len(items))
-                  print("USCCG ZH FIRST 5 CLEAN TITLES =", [x["title"] for x in items[:5]])
-
-                  if not items:
-                      return [{
-                          "title": "US Credit Card Guide ZH 目前沒有可用新聞項目",
-                          "url": url,
-                          "source": "System Empty Feed",
-                          "published_at": now_iso()
-                      }]
-
-                  return items
-
-              except Exception as e:
-                  print("USCCG ZH ERROR =", repr(e))
-                  return [{
-                      "title": f"US Credit Card Guide ZH 抓取失敗：{str(e)}",
-                      "url": url,
-                      "source": "System Fallback",
-                      "published_at": now_iso()
-                  }]
+              return parse_usccg_html(
+                  url=url,
+                  source_label="US Credit Card Guide ZH",
+                  path_prefix="https://www.uscreditcardguide.com/",
+                  max_items=max_items
+              )
 
 
           def extract_topics_from_discourse_json(payload, max_items=15):
