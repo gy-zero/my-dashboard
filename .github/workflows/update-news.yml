@@ -291,69 +291,68 @@ jobs:
 
 
           def parse_uscardforum_top(url, max_items=15):
-    try:
-        html = fetch_text(url)
-        lines = [line.strip() for line in html.splitlines() if line.strip()]
+              try:
+                  html = fetch_text(url)
+                  lines = [line.strip() for line in html.splitlines() if line.strip()]
 
-        items = []
-        seen = set()
-        header_seen = False
+                  items = []
+                  seen = set()
+                  header_seen = False
 
-        for line in lines:
-            # 跳過表頭與分隔線
-            if line.startswith("|话题") or line.startswith("|--"):
-                header_seen = True
-                continue
-            if not header_seen:
-                continue
-            if not line.startswith("|"):
-                continue
+                  for line in lines:
+                      if line.startswith("|话题") or line.startswith("|--"):
+                          header_seen = True
+                          continue
+                      if not header_seen:
+                          continue
+                      if not line.startswith("|"):
+                          continue
 
-            # 典型一列長這樣：
-            # |這次回國，做了補牙和腸鏡。 健康| |77|1048|2026 年6 月 7 日|
-            parts = [p.strip() for p in line.split("|")]
-            if len(parts) < 3:
-                continue
+                      parts = [p.strip() for p in line.split("|")]
+                      if len(parts) < 3:
+                          continue
 
-            title = clean_title(parts[1])
-            if not title or len(title) < 4:
-                continue
-            if title in ("话题", "--"):
-                continue
-            if title in seen:
-                continue
+                      title = clean_title(parts[1])
 
-            seen.add(title)
-            slug = slugify_title(title) or "topic"
-            article_url = f"{url}#top-{urllib.parse.quote(slug)}"
+                      if not title or len(title) < 4:
+                          continue
+                      if title in ("话题", "--"):
+                          continue
+                      if title in seen:
+                          continue
 
-            items.append({
-                "title": title,
-                "url": article_url,
-                "source": "美卡論壇 Top",
-                "published_at": now_iso()
-            })
+                      seen.add(title)
+                      slug = slugify_title(title) or "topic"
+                      article_url = f"{url}#top-{urllib.parse.quote(slug)}"
 
-            if len(items) >= max_items:
-                break
+                      items.append({
+                          "title": title,
+                          "url": article_url,
+                          "source": "美卡論壇 Top",
+                          "published_at": now_iso()
+                      })
 
-        if not items:
-            return [{
-                "title": "美卡論壇 Top 目前沒有可用話題",
-                "url": url,
-                "source": "System Empty Feed",
-                "published_at": now_iso()
-            }]
+                      if len(items) >= max_items:
+                          break
 
-        return items
+                  if not items:
+                      return [{
+                          "title": "美卡論壇 Top 目前沒有可用話題",
+                          "url": url,
+                          "source": "System Empty Feed",
+                          "published_at": now_iso()
+                      }]
 
-    except Exception as e:
-        return [{
-            "title": f"美卡論壇 Top 抓取失敗：{str(e)}",
-            "url": url,
-            "source": "System Fallback",
-            "published_at": now_iso()
-        }]
+                  return items
+
+              except Exception as e:
+                  return [{
+                      "title": f"美卡論壇 Top 抓取失敗：{str(e)}",
+                      "url": url,
+                      "source": "System Fallback",
+                      "published_at": now_iso()
+                  }]
+
 
           def parse_doctor_of_credit(url, max_items=15):
               try:
