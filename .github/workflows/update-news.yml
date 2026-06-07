@@ -295,7 +295,7 @@ jobs:
                   html = fetch_text(url)
 
                   row_pattern = re.compile(
-                      r'^\|([^|\n][^|\n]{3,}?)\|\s*\|\d+\|\d+\|[^\n]*\|?$',
+                      r'^\|([^|\n]*?)\|\s*\|(\d+)\|(\d+)\|([^\n|]+)\|?$',
                       re.M
                   )
 
