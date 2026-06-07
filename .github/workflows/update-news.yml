@@ -151,14 +151,6 @@ jobs:
               return text
 
 
-          def slugify_title(title):
-              t = title.strip().lower()
-              t = re.sub(r"[^\w\s-]", "", t, flags=re.U)
-              t = re.sub(r"\s+", "-", t)
-              t = re.sub(r"-+", "-", t).strip("-")
-              return t
-
-
           def resolve_google_news_url(url):
               last_error = None
 
@@ -311,16 +303,12 @@ jobs:
               try:
                   html = fetch_text(url)
 
-                  blocks = re.split(r'\bRead more\b', html, flags=re.I)
                   seen = set()
                   items = []
+                  matches = re.findall(r'(?m)^##\s+(.+?)\s*$', html)
 
-                  for block in blocks:
-                      m = re.search(r'##\s+(.+)', block)
-                      if not m:
-                          continue
-
-                      title = clean_title(strip_tags(m.group(1)))
+                  for raw_title in matches:
+                      title = clean_title(strip_tags(raw_title))
 
                       if not title or len(title) < 8:
                           continue
