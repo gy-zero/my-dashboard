@@ -293,26 +293,17 @@ jobs:
           def parse_uscardforum_top(url, max_items=15):
               try:
                   html = fetch_text(url)
-                  lines = [line.strip() for line in html.splitlines() if line.strip()]
+
+                  row_pattern = re.compile(
+                      r'^\|([^|\n][^|\n]{3,}?)\|\s*\|\d+\|\d+\|[^\n]*\|?$',
+                      re.M
+                  )
 
                   items = []
                   seen = set()
-                  header_seen = False
 
-                  for line in lines:
-                      if line.startswith("|话题") or line.startswith("|--"):
-                          header_seen = True
-                          continue
-                      if not header_seen:
-                          continue
-                      if not line.startswith("|"):
-                          continue
-
-                      parts = [p.strip() for p in line.split("|")]
-                      if len(parts) < 3:
-                          continue
-
-                      title = clean_title(parts[1])
+                  for match in row_pattern.finditer(html):
+                      title = clean_title(match.group(1))
 
                       if not title or len(title) < 4:
                           continue
