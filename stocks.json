@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-08T01:00:33Z",
+  "updated_at": "2026-06-08T02:00:31Z",
   "assets": [
     {
       "name": "VOO",
@@ -65,8 +65,8 @@
       "name": "BTC-USD",
       "display_name": "BTCUSD",
       "currency": "USD",
-      "current": 63589.08,
-      "prev": 63589.08,
+      "current": 63207.99,
+      "prev": 63207.99,
       "prev2": 60867.41,
       "prev3": 60922.67,
       "stale": false
@@ -75,8 +75,8 @@
       "name": "GC=F",
       "display_name": "Gold(CFD)",
       "currency": "USD",
-      "current": 4366.3,
-      "prev": 4366.3,
+      "current": 4343.6,
+      "prev": 4343.6,
       "prev2": 4337.1,
       "prev3": 4475.8,
       "stale": false
@@ -85,20 +85,20 @@
       "name": "0050.TW",
       "display_name": "TPE:0050",
       "currency": "TWD",
-      "current": 104.15,
-      "prev": 104.15,
-      "prev2": 106.1,
-      "prev3": 107.6,
+      "current": 99.45,
+      "prev": 99.45,
+      "prev2": 104.15,
+      "prev3": 106.1,
       "stale": false
     },
     {
       "name": "2330.TW",
       "display_name": "TPE:2330",
       "currency": "TWD",
-      "current": 2365.0,
-      "prev": 2365.0,
-      "prev2": 2385.0,
-      "prev3": 2425.0,
+      "current": 2275.0,
+      "prev": 2275.0,
+      "prev2": 2365.0,
+      "prev3": 2385.0,
       "stale": false
     }
   ]
