@@ -1,12 +1,12 @@
 {
-  "updated_at": "2026-06-10T15:00:43Z",
+  "updated_at": "2026-06-10T17:00:36Z",
   "assets": [
     {
       "name": "VOO",
       "display_name": "VOO",
       "currency": "USD",
-      "current": 673.14,
-      "prev": 673.14,
+      "current": 671.91,
+      "prev": 671.91,
       "prev2": 677.7,
       "prev3": 679.68,
       "stale": false
@@ -15,8 +15,8 @@
       "name": "AAPL",
       "display_name": "AAPL",
       "currency": "USD",
-      "current": 289.24,
-      "prev": 289.25,
+      "current": 292.41,
+      "prev": 292.41,
       "prev2": 290.55,
       "prev3": 301.54,
       "stale": false
@@ -25,8 +25,8 @@
       "name": "AMZN",
       "display_name": "AMZN",
       "currency": "USD",
-      "current": 239.88,
-      "prev": 239.88,
+      "current": 239.39,
+      "prev": 239.33,
       "prev2": 244.19,
       "prev3": 245.22,
       "stale": false
@@ -35,8 +35,8 @@
       "name": "GOOG",
       "display_name": "GOOG",
       "currency": "USD",
-      "current": 360.88,
-      "prev": 360.88,
+      "current": 356.25,
+      "prev": 356.25,
       "prev2": 362.29,
       "prev3": 361.17,
       "stale": false
@@ -45,8 +45,8 @@
       "name": "NVDA",
       "display_name": "NVDA",
       "currency": "USD",
-      "current": 203.44,
-      "prev": 203.43,
+      "current": 203.12,
+      "prev": 203.07,
       "prev2": 208.19,
       "prev3": 208.64,
       "stale": false
@@ -55,8 +55,8 @@
       "name": "TSLA",
       "display_name": "TSLA",
       "currency": "USD",
-      "current": 385.03,
-      "prev": 385.03,
+      "current": 383.94,
+      "prev": 383.94,
       "prev2": 396.68,
       "prev3": 408.95,
       "stale": false
@@ -65,8 +65,8 @@
       "name": "BTC-USD",
       "display_name": "BTCUSD",
       "currency": "USD",
-      "current": 62187.83,
-      "prev": 62187.83,
+      "current": 62170.99,
+      "prev": 62170.99,
       "prev2": 61643.78,
       "prev3": 63090.59,
       "stale": false
@@ -75,8 +75,8 @@
       "name": "GC=F",
       "display_name": "Gold(CFD)",
       "currency": "USD",
-      "current": 4162.3,
-      "prev": 4161.7,
+      "current": 4141.3,
+      "prev": 4141.3,
       "prev2": 4260.0,
       "prev3": 4335.9,
       "stale": false
@@ -86,9 +86,9 @@
       "display_name": "TPE:0050",
       "currency": "TWD",
       "current": 100.25,
-      "prev": 100.25,
-      "prev2": 103.5,
-      "prev3": 100.95,
+      "prev": 103.5,
+      "prev2": 100.95,
+      "prev3": 104.15,
       "stale": false
     },
     {
@@ -96,9 +96,9 @@
       "display_name": "TPE:2330",
       "currency": "TWD",
       "current": 2255.0,
-      "prev": 2255.0,
-      "prev2": 2305.0,
-      "prev3": 2295.0,
+      "prev": 2305.0,
+      "prev2": 2295.0,
+      "prev3": 2365.0,
       "stale": false
     }
   ]
